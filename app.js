@@ -13,9 +13,10 @@
 
 /* ---------------------- Configuração ---------------------- */
 
-const VERSAO_FIREBASE = "12.0.0"; // versão do SDK carregada via CDN do Google
+const VERSAO_FIREBASE = "12.16.0"; // versão do SDK carregada via CDN do Google
 const MODELO_IA = "gemini-2.5-flash";
-const MODELOS_REST = ["gemini-2.5-flash", "gemini-2.0-flash"]; // fallback no modo chave
+// Fallback no modo chave: o flash-lite tem cota gratuita mais generosa
+const MODELOS_REST = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"];
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
 const MIN_RESPOSTAS_IA = 6;
 
@@ -232,6 +233,14 @@ async function gerarConteudo(contents, systemInstruction) {
       estado.modeloRest = m;
       return texto.trim();
     } catch (e) { ultimoErro = e; }
+  }
+  // Traduz os erros mais comuns da API em mensagens compreensíveis
+  const msg = String(ultimoErro && ultimoErro.message || ultimoErro);
+  if (msg.includes("429")) {
+    throw new Error("A cota gratuita do Gemini atingiu o limite (por minuto ou por dia). Aguarde cerca de 1 minuto e envie novamente — se persistir, tente mais tarde ou use outra forma de acesso.");
+  }
+  if (msg.includes("403") || msg.includes("API_KEY_INVALID") || msg.includes("400")) {
+    throw new Error("A chave informada não foi aceita pela API do Gemini. Confira se copiou a chave completa em aistudio.google.com/apikey.");
   }
   throw ultimoErro;
 }
