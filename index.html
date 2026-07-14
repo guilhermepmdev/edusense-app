@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Matriz Etiológica da Personalidade</title>
-<meta name="description" content="Ferramenta de autoconhecimento: coleta guiada por IA, matriz etiológica e premissa de plano de desenvolvimento.">
+<title>Matriz Etiológica da Personalidade — descubra as origens de quem você é</title>
+<meta name="description" content="Entrevista guiada por IA que mapeia as causas da sua personalidade em uma matriz etiológica e entrega uma premissa de plano de desenvolvimento.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -30,48 +30,114 @@
 
 <main>
 
-<!-- ===================== ETAPA 1: INÍCIO ===================== -->
+<!-- ===================== ETAPA 1: LANDING ===================== -->
 <section id="etapa-inicio" class="etapa visivel">
+
   <div class="hero">
-    <p class="eyebrow">Etiologia: a pesquisa das causas e origens de um fenômeno</p>
-    <h2>De onde vem quem você é?</h2>
+    <p class="eyebrow">Etiologia: o estudo das causas e origens</p>
+    <h2>Testes de personalidade dizem <em>o que</em> você é.<br>Nenhum explica <em>por quê</em>.</h2>
     <p class="hero-texto">
-      Esta ferramenta conduz uma entrevista estruturada sobre as origens da sua
-      personalidade, organiza suas respostas em uma matriz etiológica de seis
-      dimensões e propõe uma premissa de plano de desenvolvimento pessoal.
+      A Matriz Etiológica conduz uma entrevista guiada por inteligência artificial,
+      mapeia as <strong>origens</strong> da sua personalidade em seis dimensões e
+      transforma o resultado em uma <strong>premissa de plano de desenvolvimento</strong> —
+      um ponto de partida concreto para evoluir.
     </p>
+    <button class="btn btn-primario btn-grande" data-iniciar>Iniciar minha matriz →</button>
+    <p class="ajuda">Gratuito · Suas respostas não são armazenadas por este site</p>
   </div>
 
-  <div class="modos">
-    <article class="modo-card">
-      <h3>Modo IA <span class="tag tag-ia">Gemini</span></h3>
-      <p>A entrevista é conduzida por inteligência artificial, que adapta as
-      perguntas às suas respostas e redige a matriz e o plano de forma
-      personalizada.</p>
-      <p class="privacidade">🔒 Você usa <strong>sua própria chave</strong> da API
-      Gemini (gratuita). As respostas vão do seu navegador direto para o Google —
-      nada é enviado ou armazenado por este site.</p>
-      <label for="chave-api">Chave da API Gemini</label>
-      <input type="password" id="chave-api" placeholder="Cole sua chave aqui" autocomplete="off">
-      <p class="ajuda">Obtenha gratuitamente em
-      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
-      A chave fica salva apenas neste navegador.</p>
-      <button class="btn btn-primario" id="btn-modo-ia">Iniciar com IA</button>
-    </article>
+  <div class="dores">
+    <h3>Você já sentiu isso?</h3>
+    <div class="dores-grade">
+      <article class="dor-card">
+        <span class="dor-icone" aria-hidden="true">🔁</span>
+        <h4>Autoconhecimento que não sai do lugar</h4>
+        <p>Você repete padrões — na carreira, nos relacionamentos, nas decisões —
+        e não entende de onde eles vêm.</p>
+      </article>
+      <article class="dor-card">
+        <span class="dor-icone" aria-hidden="true">🏷️</span>
+        <h4>Rótulos genéricos</h4>
+        <p>Testes rápidos entregam uma etiqueta ("analista", "comunicador"),
+        mas nenhuma explicação sobre as causas por trás dela.</p>
+      </article>
+      <article class="dor-card">
+        <span class="dor-icone" aria-hidden="true">🧭</span>
+        <h4>Nenhum caminho prático</h4>
+        <p>Mesmo quando você se reconhece no resultado, falta o próximo passo:
+        o que fazer, em quanto tempo, e como medir a evolução.</p>
+      </article>
+    </div>
+  </div>
 
-    <article class="modo-card">
-      <h3>Modo Demonstração <span class="tag tag-demo">sem chave</span></h3>
-      <p>Um roteiro fixo de 12 perguntas percorre todas as dimensões da matriz.
-      O processamento é feito localmente, no próprio navegador — ideal para
-      conhecer o funcionamento da ferramenta.</p>
-      <p class="privacidade">🔒 Neste modo, nenhum dado sai do seu navegador.</p>
-      <button class="btn btn-secundario" id="btn-modo-demo">Iniciar demonstração</button>
-    </article>
+  <div class="como-funciona">
+    <h3>Como funciona</h3>
+    <ol class="passos-lista">
+      <li><strong>Entrevista guiada.</strong> Uma conversa estruturada — conduzida
+      por IA — percorre as origens biológicas, psicológicas, cognitivas, sociais,
+      históricas e espirituais de quem você é.</li>
+      <li><strong>Matriz etiológica.</strong> Suas respostas são organizadas em uma
+      matriz sistêmica: causas, impactos, certezas, suposições, dúvidas e influências.</li>
+      <li><strong>Premissa de desenvolvimento.</strong> Você recebe pontos fortes,
+      pontos de atenção e ações com prazo e indicador — prontos para imprimir ou salvar.</li>
+    </ol>
   </div>
 
   <div class="dimensoes-resumo">
-    <h3>As seis dimensões da matriz</h3>
+    <h3>As seis dimensões analisadas</h3>
     <div class="dim-grade" id="dim-resumo"></div>
+  </div>
+
+  <div class="cta-final">
+    <h3>De onde vem quem você é?</h3>
+    <p>Reserve 15 minutos, responda com sinceridade e receba sua matriz completa.</p>
+    <button class="btn btn-primario btn-grande" data-iniciar>Iniciar minha matriz →</button>
+  </div>
+</section>
+
+<!-- ===================== TELA DE ACESSO ===================== -->
+<section id="etapa-acesso" class="etapa">
+  <div class="acesso-caixa">
+    <h2>Como você quer entrar?</h2>
+    <p class="secao-sub">Escolha uma forma de acesso. Em todos os casos, suas respostas
+    vão do seu navegador direto para o serviço de IA — este site não armazena nada.</p>
+
+    <div class="acesso-opcoes">
+
+      <article class="acesso-card acesso-destaque">
+        <h3>Entrar com Google</h3>
+        <p>O caminho mais simples: faça login com sua conta Google e comece.
+        Sem chaves, sem configuração.</p>
+        <p class="ajuda">Cortesia do site, sujeita a um limite diário
+        compartilhado de uso gratuito. Suas respostas vão direto ao Google e
+        não são armazenadas por nós.</p>
+        <button class="btn btn-primario" id="btn-login-google">
+          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M21.35 11.1H12v2.9h5.35c-.5 2.4-2.6 3.9-5.35 3.9a6 6 0 1 1 0-12c1.5 0 2.9.55 3.95 1.5l2.15-2.15A9 9 0 1 0 12 21c5.2 0 8.7-3.65 8.7-8.8 0-.4-.1-.75-.35-1.1Z"/></svg>
+          Entrar com Google
+        </button>
+        <p class="ajuda" id="aviso-firebase"></p>
+      </article>
+
+      <article class="acesso-card">
+        <h3>Usar minha chave Gemini</h3>
+        <p>Recomendado para uso frequente: cole sua chave gratuita da API Gemini
+        (<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">obtenha aqui</a> em
+        30 segundos) e consuma a cota gratuita da sua própria conta.
+        A chave fica salva apenas neste navegador.</p>
+        <label for="chave-api">Chave da API</label>
+        <input type="password" id="chave-api" placeholder="Cole sua chave" autocomplete="off">
+        <button class="btn btn-secundario" id="btn-modo-chave">Entrar com minha chave</button>
+      </article>
+
+      <article class="acesso-card">
+        <h3>Modo demonstração</h3>
+        <p>Sem login e sem IA: um roteiro fixo de 12 perguntas, processado
+        localmente no seu navegador. Ideal para conhecer a ferramenta.</p>
+        <button class="btn btn-fantasma" id="btn-modo-demo">Ver demonstração</button>
+      </article>
+
+    </div>
+    <button class="btn btn-fantasma" id="btn-voltar-inicio">← Voltar</button>
   </div>
 </section>
 
@@ -137,9 +203,10 @@
 <footer class="rodape">
   <p>Ferramenta educacional de autoconhecimento baseada na Matriz Etiológica da
   Personalidade. Os resultados são uma premissa de reflexão e não constituem
-  diagnóstico psicológico.</p>
+  diagnóstico psicológico. Nenhuma resposta é armazenada pelos autores do site.</p>
 </footer>
 
+<script src="firebase-config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
