@@ -3,565 +3,143 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EduSense — Acompanhamento Integral do Estudante</title>
+<title>Matriz Etiológica da Personalidade</title>
+<meta name="description" content="Ferramenta de autoconhecimento: coleta guiada por IA, matriz etiológica e premissa de plano de desenvolvimento.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #f0eeff;
-    --bg2: #ffffff;
-    --bg3: #e8f5f0;
-    --sidebar-bg: #ffffff;
-    --card: #ffffff;
-    --card2: #f7f5ff;
-    --lilac: #a78bfa;
-    --lilac-deep: #7c3aed;
-    --lilac-light: #ede9fe;
-    --teal: #2dd4bf;
-    --teal-deep: #0d9488;
-    --teal-light: #ccfbf1;
-    --rose: #fb7185;
-    --rose-light: #ffe4e6;
-    --amber: #fbbf24;
-    --amber-light: #fef3c7;
-    --green: #4ade80;
-    --green-deep: #16a34a;
-    --green-light: #dcfce7;
-    --text: #1e1b4b;
-    --text2: #6d6a8a;
-    --text3: #a0a0c0;
-    --border: rgba(167,139,250,0.18);
-    --shadow: 0 4px 24px rgba(124,58,237,0.08);
-    --shadow-sm: 0 2px 10px rgba(124,58,237,0.06);
-    --r: 20px;
-    --r-lg: 28px;
-    --r-xl: 36px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); }
-
-  /* LAYOUT */
-  .shell { display: flex; height: 100vh; overflow: hidden; }
-  .sidebar {
-    width: 230px; background: var(--sidebar-bg); border-right: 1.5px solid var(--border);
-    display: flex; flex-direction: column; padding: 28px 0 20px; flex-shrink: 0;
-    box-shadow: 2px 0 20px rgba(124,58,237,0.05); transition: transform 0.3s ease; z-index: 100;
-  }
-  .main { flex: 1; overflow-y: auto; padding: 32px 28px 100px; background: var(--bg); }
-
-  /* LOGO */
-  .logo { padding: 0 22px 24px; border-bottom: 1.5px solid var(--border); margin-bottom: 10px; }
-  .logo-mark { display: flex; align-items: center; gap: 10px; }
-  .logo-icon { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(135deg,#a78bfa,#2dd4bf); display: flex; align-items: center; justify-content: center; }
-  .logo-icon svg { width: 20px; height: 20px; fill: white; }
-  .logo-name { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-  .logo-sub { font-size: 10.5px; color: var(--text3); font-weight: 400; }
-
-  /* NAV */
-  .nav-item {
-    display: flex; align-items: center; gap: 11px; padding: 11px 22px;
-    font-size: 13.5px; font-weight: 500; color: var(--text2); cursor: pointer;
-    border-left: 3px solid transparent; transition: all 0.18s; margin: 1px 0;
-  }
-  .nav-item:hover { background: var(--lilac-light); color: var(--lilac-deep); }
-  .nav-item.active { background: var(--lilac-light); color: var(--lilac-deep); border-left: 3px solid var(--lilac); }
-  .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
-
-  /* AVATAR FOOTER */
-  .sidebar-footer { margin-top: auto; padding: 18px 22px 0; border-top: 1.5px solid var(--border); }
-  .user-row { display: flex; align-items: center; gap: 10px; }
-  .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg,#a78bfa,#2dd4bf); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: white; flex-shrink: 0; }
-  .user-name { font-size: 13px; font-weight: 600; color: var(--text); }
-  .user-role { font-size: 11px; color: var(--text3); }
-
-  /* TOP BAR (mobile) */
-  .topbar {
-    display: none; align-items: center; justify-content: space-between;
-    padding: 14px 18px; background: white; border-bottom: 1.5px solid var(--border);
-    position: sticky; top: 0; z-index: 200;
-  }
-  .hamburger { background: none; border: none; cursor: pointer; padding: 4px; display: flex; flex-direction: column; gap: 5px; }
-  .hamburger span { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 2px; transition: all 0.2s; }
-  .topbar-logo { font-size: 16px; font-weight: 700; color: var(--text); }
-  .topbar-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg,#a78bfa,#2dd4bf); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; }
-
-  /* BOTTOM NAV (mobile) */
-  .bottom-nav {
-    display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
-    background: white; border-top: 1.5px solid var(--border);
-    padding: 8px 0 env(safe-area-inset-bottom, 8px);
-    justify-content: space-around; align-items: center;
-  }
-  .bn-item { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 4px 10px; border-radius: 12px; transition: all 0.15s; flex: 1; }
-  .bn-item svg { width: 22px; height: 22px; color: var(--text3); transition: color 0.15s; }
-  .bn-item span { font-size: 10px; color: var(--text3); font-weight: 500; transition: color 0.15s; }
-  .bn-item.active svg, .bn-item.active span { color: var(--lilac-deep); }
-  .bn-item.active { background: var(--lilac-light); }
-
-  /* SIDEBAR OVERLAY */
-  .overlay { display: none; position: fixed; inset: 0; background: rgba(30,27,75,0.35); z-index: 99; }
-  .overlay.visible { display: block; }
-
-  /* PAGES */
-  .page { display: none; animation: fadeUp 0.22s ease; }
-  .page.active { display: block; }
-  @keyframes fadeUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform:translateY(0); } }
-  .page-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
-  .page-subtitle { font-size: 13px; color: var(--text2); margin-bottom: 22px; }
-
-  /* CARDS */
-  .card { background: var(--card); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow-sm); border: 1.5px solid var(--border); margin-bottom: 16px; }
-  .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 14px; }
-  .card2 { background: var(--card2); border-radius: var(--r-lg); padding: 18px; border: 1.5px solid var(--lilac-light); margin-bottom: 16px; }
-
-  /* GRID */
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
-  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-  .grid-comp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-
-  /* METRIC */
-  .metric-card { background: white; border-radius: var(--r); padding: 16px; border: 1.5px solid var(--border); box-shadow: var(--shadow-sm); }
-  .metric-label { font-size: 11px; color: var(--text3); font-weight: 500; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .metric-value { font-size: 24px; font-weight: 700; color: var(--text); }
-  .metric-sub { font-size: 11px; color: var(--text2); margin-top: 3px; }
-
-  /* EMOJI CHECK-IN */
-  .emoji-row { display: flex; gap: 8px; justify-content: space-between; margin-bottom: 4px; }
-  .emoji-btn {
-    flex: 1; padding: 12px 4px 10px; border: 2px solid var(--border);
-    border-radius: var(--r-xl); background: var(--bg); cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; gap: 5px;
-    transition: all 0.18s; font-size: 22px; outline: none;
-  }
-  .emoji-btn:hover { border-color: var(--lilac); background: var(--lilac-light); transform: translateY(-2px); }
-  .emoji-btn.selected { border-color: var(--lilac-deep); background: var(--lilac-light); box-shadow: 0 0 0 3px rgba(167,139,250,0.25); transform: translateY(-2px); }
-  .emoji-label { font-size: 10px; color: var(--text2); font-weight: 500; font-family: 'Poppins', sans-serif; }
-
-  /* CHECK-IN RESULT */
-  .checkin-result { border-radius: var(--r); padding: 14px 16px; margin-top: 14px; display: none; transition: all 0.2s; }
-  .checkin-result.visible { display: block; }
-  .checkin-msg { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
-  .checkin-sub { font-size: 12px; line-height: 1.5; }
-
-  /* SUBJECT BARS */
-  .subject-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
-  .subject-name { font-size: 12.5px; color: var(--text); font-weight: 500; width: 88px; flex-shrink: 0; }
-  .bar-track { flex: 1; height: 9px; background: var(--bg); border-radius: 99px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-  .bar-grade { font-size: 12px; color: var(--text2); font-weight: 600; width: 28px; text-align: right; }
-
-  /* BADGES */
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; font-family: 'Poppins', sans-serif; }
-  .badge-lilac { background: var(--lilac-light); color: var(--lilac-deep); }
-  .badge-teal { background: var(--teal-light); color: var(--teal-deep); }
-  .badge-amber { background: var(--amber-light); color: #92400e; }
-  .badge-rose { background: var(--rose-light); color: #be123c; }
-  .badge-green { background: var(--green-light); color: var(--green-deep); }
-
-  /* TIP CARDS */
-  .tip-card { border-radius: var(--r); padding: 14px 16px; margin-bottom: 10px; border-left: 4px solid; }
-  .tip-card.blue { background: #f0f9ff; border-color: #38bdf8; }
-  .tip-card.green { background: var(--teal-light); border-color: var(--teal); }
-  .tip-card.amber { background: var(--amber-light); border-color: var(--amber); }
-  .tip-card.lilac { background: var(--lilac-light); border-color: var(--lilac); }
-  .tip-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
-  .tip-text { font-size: 13px; color: var(--text); line-height: 1.6; }
-
-  /* COMPETENCY CARDS */
-  .comp-card { background: white; border-radius: var(--r-lg); padding: 18px; border: 1.5px solid var(--border); transition: all 0.2s; cursor: pointer; }
-  .comp-card:hover { border-color: var(--lilac); transform: translateY(-2px); box-shadow: var(--shadow); }
-  .comp-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 20px; }
-  .comp-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
-  .comp-desc { font-size: 12px; color: var(--text2); line-height: 1.55; }
-  .prog-bar { height: 6px; background: var(--bg); border-radius: 99px; overflow: hidden; margin-top: 12px; margin-bottom: 4px; }
-  .prog-fill { height: 100%; border-radius: 99px; }
-  .prog-label { font-size: 11px; color: var(--text3); display: flex; justify-content: space-between; }
-  .prog-pct { font-weight: 700; color: var(--text2); }
-
-  /* CHART BARS */
-  .chart-area { display: flex; align-items: flex-end; gap: 8px; height: 110px; padding-top: 8px; }
-  .chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; justify-content: flex-end; }
-  .chart-bar-outer { width: 100%; background: var(--bg); border-radius: 8px 8px 0 0; display: flex; align-items: flex-end; flex: 1; overflow: hidden; }
-  .chart-bar-inner { width: 100%; border-radius: 8px 8px 0 0; transition: height 0.6s ease; }
-  .chart-label { font-size: 11px; color: var(--text3); font-weight: 500; }
-  .chart-val { font-size: 12px; color: var(--text2); font-weight: 700; }
-
-  /* ALERTS */
-  .alert-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--r); margin-bottom: 9px; }
-  .alert-item.warn { background: var(--amber-light); }
-  .alert-item.danger { background: var(--rose-light); }
-  .alert-item.ok { background: var(--green-light); }
-  .alert-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-  .alert-text { font-size: 13px; color: var(--text); font-weight: 500; }
-  .alert-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
-
-  /* ROLE SWITCHER */
-  .role-switcher { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-  .role-btn { padding: 7px 16px; border-radius: 99px; font-size: 12px; cursor: pointer; border: 1.5px solid var(--border); background: white; color: var(--text2); font-weight: 500; font-family: 'Poppins', sans-serif; transition: all 0.15s; }
-  .role-btn.active { background: var(--lilac-deep); color: white; border-color: var(--lilac-deep); }
-  .role-btn:hover:not(.active) { border-color: var(--lilac); color: var(--lilac-deep); }
-
-  /* HERO BANNER */
-  .hero-banner { background: linear-gradient(135deg, #a78bfa 0%, #2dd4bf 100%); border-radius: var(--r-xl); padding: 22px 24px; color: white; margin-bottom: 18px; position: relative; overflow: hidden; }
-  .hero-banner::before { content:''; position:absolute; top:-30px; right:-30px; width:130px; height:130px; border-radius:50%; background:rgba(255,255,255,0.12); }
-  .hero-banner::after { content:''; position:absolute; bottom:-20px; left:40%; width:80px; height:80px; border-radius:50%; background:rgba(255,255,255,0.08); }
-  .hero-greeting { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
-  .hero-sub { font-size: 12.5px; opacity: 0.88; }
-
-  /* SECTION LABEL */
-  .section-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin: 20px 0 10px; }
-
-  /* RESPONSIVE */
-  @media (max-width: 720px) {
-    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; transform: translateX(-100%); width: 240px; padding-top: 20px; }
-    .sidebar.open { transform: translateX(0); }
-    .topbar { display: flex; }
-    .bottom-nav { display: flex; }
-    .main { padding: 16px 14px 90px; }
-    .hero-banner { padding: 18px; }
-    .grid-2 { grid-template-columns: 1fr; }
-    .grid-3 { grid-template-columns: 1fr 1fr; }
-    .grid-comp { grid-template-columns: 1fr; }
-    .emoji-btn { padding: 10px 2px 8px; font-size: 19px; }
-    .emoji-label { font-size: 9px; }
-    .page-title { font-size: 18px; }
-  }
-  @media (max-width: 400px) {
-    .grid-3 { grid-template-columns: 1fr; }
-  }
-</style>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="shell">
-  <!-- SIDEBAR (desktop) -->
-  <aside class="sidebar" id="sidebar">
-    <div class="logo">
-      <div class="logo-mark">
-        <div class="logo-icon">
-          <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm1 11H9V9h2v4zm0-6H9V5h2v2z"/></svg>
-        </div>
-        <div>
-          <div class="logo-name">EduSense</div>
-          <div class="logo-sub">Acompanhamento integral</div>
-        </div>
-      </div>
+<header class="topo">
+  <div class="marca">
+    <span class="marca-simbolo" aria-hidden="true">◐</span>
+    <div>
+      <h1>Matriz Etiológica da Personalidade</h1>
+      <p>Coleta guiada · Análise sistêmica · Plano de desenvolvimento</p>
     </div>
-    <nav>
-      <div class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
-        <svg viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="2" width="7" height="7" rx="2"/><rect x="11" y="2" width="7" height="7" rx="2" opacity=".5"/><rect x="2" y="11" width="7" height="7" rx="2" opacity=".5"/><rect x="11" y="11" width="7" height="7" rx="2"/></svg>
-        Dashboard
-      </div>
-      <div class="nav-item" id="nav-apoio" onclick="navigate('apoio')">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v4a1 1 0 00.293.707l2.5 2.5a1 1 0 101.414-1.414L11 8.586V5z" opacity=".7"/><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm1 5v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 019 11V7a1 1 0 012 0z"/></svg>
-        Apoio e Dicas
-      </div>
-      <div class="nav-item" id="nav-carreira" onclick="navigate('carreira')">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M2 11l8-8 8 8M4 9v9a1 1 0 001 1h4v-5h2v5h4a1 1 0 001-1V9" opacity=".6"/><path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L10 4.414 4.707 9.707a1 1 0 01-1.414 0z"/></svg>
-        Projeto de Vida
-      </div>
-      <div class="nav-item" id="nav-gestor" onclick="navigate('gestor')">
-        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
-        Visão da Escola
-      </div>
-    </nav>
-    <div class="sidebar-footer">
-      <div class="user-row">
-        <div class="avatar">GP</div>
-        <div>
-          <div class="user-name">Guilherme Pereira</div>
-          <div class="user-role">1º Ano A </div>
-        </div>
-      </div>
+  </div>
+  <nav class="stepper" aria-label="Etapas">
+    <button class="passo ativo" data-etapa="inicio"><span>1</span>Início</button>
+    <button class="passo" data-etapa="coleta" disabled><span>2</span>Coleta</button>
+    <button class="passo" data-etapa="matriz" disabled><span>3</span>Matriz</button>
+    <button class="passo" data-etapa="plano" disabled><span>4</span>Plano</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ===================== ETAPA 1: INÍCIO ===================== -->
+<section id="etapa-inicio" class="etapa visivel">
+  <div class="hero">
+    <p class="eyebrow">Etiologia: a pesquisa das causas e origens de um fenômeno</p>
+    <h2>De onde vem quem você é?</h2>
+    <p class="hero-texto">
+      Esta ferramenta conduz uma entrevista estruturada sobre as origens da sua
+      personalidade, organiza suas respostas em uma matriz etiológica de seis
+      dimensões e propõe uma premissa de plano de desenvolvimento pessoal.
+    </p>
+  </div>
+
+  <div class="modos">
+    <article class="modo-card">
+      <h3>Modo IA <span class="tag tag-ia">Gemini</span></h3>
+      <p>A entrevista é conduzida por inteligência artificial, que adapta as
+      perguntas às suas respostas e redige a matriz e o plano de forma
+      personalizada.</p>
+      <p class="privacidade">🔒 Você usa <strong>sua própria chave</strong> da API
+      Gemini (gratuita). As respostas vão do seu navegador direto para o Google —
+      nada é enviado ou armazenado por este site.</p>
+      <label for="chave-api">Chave da API Gemini</label>
+      <input type="password" id="chave-api" placeholder="Cole sua chave aqui" autocomplete="off">
+      <p class="ajuda">Obtenha gratuitamente em
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
+      A chave fica salva apenas neste navegador.</p>
+      <button class="btn btn-primario" id="btn-modo-ia">Iniciar com IA</button>
+    </article>
+
+    <article class="modo-card">
+      <h3>Modo Demonstração <span class="tag tag-demo">sem chave</span></h3>
+      <p>Um roteiro fixo de 12 perguntas percorre todas as dimensões da matriz.
+      O processamento é feito localmente, no próprio navegador — ideal para
+      conhecer o funcionamento da ferramenta.</p>
+      <p class="privacidade">🔒 Neste modo, nenhum dado sai do seu navegador.</p>
+      <button class="btn btn-secundario" id="btn-modo-demo">Iniciar demonstração</button>
+    </article>
+  </div>
+
+  <div class="dimensoes-resumo">
+    <h3>As seis dimensões da matriz</h3>
+    <div class="dim-grade" id="dim-resumo"></div>
+  </div>
+</section>
+
+<!-- ===================== ETAPA 2: COLETA ===================== -->
+<section id="etapa-coleta" class="etapa">
+  <div class="coleta-cabecalho">
+    <div>
+      <h2>Entrevista de coleta</h2>
+      <p id="coleta-modo-info"></p>
     </div>
-  </aside>
+    <div class="progresso" aria-label="Progresso da coleta">
+      <svg viewBox="0 0 44 44" class="anel">
+        <circle cx="22" cy="22" r="19" class="anel-fundo"/>
+        <circle cx="22" cy="22" r="19" class="anel-frente" id="anel-frente"/>
+      </svg>
+      <span id="progresso-texto">0%</span>
+    </div>
+  </div>
 
-  <!-- MAIN -->
-  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;">
-    <!-- TOP BAR (mobile) -->
-    <header class="topbar" id="topbar">
-      <button class="hamburger" onclick="toggleSidebar()" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
-      <span class="topbar-logo">EduSense</span>
-      <div class="topbar-avatar">GP</div>
-    </header>
+  <div class="chat" id="chat" aria-live="polite"></div>
 
-    <main class="main" id="main">
+  <form class="chat-entrada" id="form-chat">
+    <textarea id="campo-resposta" rows="2" placeholder="Escreva sua resposta…" required></textarea>
+    <button type="submit" class="btn btn-primario" id="btn-enviar">Enviar</button>
+  </form>
+  <div class="coleta-acoes">
+    <button class="btn btn-fantasma" id="btn-concluir" disabled>Concluir coleta e gerar matriz</button>
+  </div>
+</section>
 
-      <!-- DASHBOARD -->
-      <div class="page active" id="page-dashboard">
-        <div class="hero-banner">
-          <div class="hero-greeting">Olá, Guilherme! 👋</div>
-          <div class="hero-sub">Terça-feira, 27 de abril · 1º Ano A </div>
-        </div>
+<!-- ===================== ETAPA 3: MATRIZ ===================== -->
+<section id="etapa-matriz" class="etapa">
+  <h2>Sua matriz etiológica</h2>
+  <p class="secao-sub">Síntese sistêmica das causas e origens identificadas na entrevista.</p>
+  <div id="matriz-conteudo"></div>
+  <div class="acoes-fim">
+    <button class="btn btn-primario" id="btn-ver-plano">Ver plano de desenvolvimento →</button>
+  </div>
+</section>
 
-        <div class="card">
-          <div class="card-title">Como você está hoje?</div>
-          <div class="emoji-row">
-            <button class="emoji-btn" onclick="selectMood(this,'triste')" data-mood="triste" aria-label="Triste"><span>😔</span><span class="emoji-label">Triste</span></button>
-            <button class="emoji-btn" onclick="selectMood(this,'ansioso')" data-mood="ansioso" aria-label="Ansioso"><span>😟</span><span class="emoji-label">Ansioso</span></button>
-            <button class="emoji-btn" onclick="selectMood(this,'neutro')" data-mood="neutro" aria-label="Neutro"><span>😐</span><span class="emoji-label">Neutro</span></button>
-            <button class="emoji-btn" onclick="selectMood(this,'bem')" data-mood="bem" aria-label="Bem"><span>🙂</span><span class="emoji-label">Bem</span></button>
-            <button class="emoji-btn" onclick="selectMood(this,'otimo')" data-mood="otimo" aria-label="Ótimo"><span>😄</span><span class="emoji-label">Ótimo</span></button>
-          </div>
-          <div class="checkin-result" id="checkin-result">
-            <div class="checkin-msg" id="checkin-msg"></div>
-            <div class="checkin-sub" id="checkin-sub"></div>
-          </div>
-        </div>
+<!-- ===================== ETAPA 4: PLANO ===================== -->
+<section id="etapa-plano" class="etapa">
+  <h2>Premissa de plano de desenvolvimento</h2>
+  <p class="secao-sub">Ponto de partida para evolução pessoal — não substitui acompanhamento profissional.</p>
+  <div id="plano-conteudo"></div>
+  <div class="acoes-fim">
+    <button class="btn btn-secundario" id="btn-imprimir">Imprimir / salvar PDF</button>
+    <button class="btn btn-fantasma" id="btn-baixar-json">Baixar dados (.json)</button>
+    <button class="btn btn-fantasma" id="btn-recomecar">Recomeçar</button>
+  </div>
+</section>
 
-        <div class="grid-3">
-          <div class="metric-card"><div class="metric-label">Frequência</div><div class="metric-value" style="color:var(--teal-deep)">92%</div><div class="metric-sub">Últimos 30 dias</div></div>
-          <div class="metric-card"><div class="metric-label">Média geral</div><div class="metric-value" style="color:var(--lilac-deep)">7.4</div><div class="metric-sub">+0,3 vs mês anterior</div></div>
-          <div class="metric-card"><div class="metric-label">Engajamento</div><div class="metric-value" style="color:var(--green-deep)">Alto</div><div class="metric-sub">Participações ativas</div></div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">Status das matérias</div>
-          <div class="subject-bar"><span class="subject-name">Matemática</span><div class="bar-track"><div class="bar-fill" style="width:62%;background:var(--amber)"></div></div><span class="bar-grade">6.2</span></div>
-          <div class="subject-bar"><span class="subject-name">Português</span><div class="bar-track"><div class="bar-fill" style="width:80%;background:var(--teal)"></div></div><span class="bar-grade">8.0</span></div>
-          <div class="subject-bar"><span class="subject-name">Ciências</span><div class="bar-track"><div class="bar-fill" style="width:75%;background:var(--teal)"></div></div><span class="bar-grade">7.5</span></div>
-          <div class="subject-bar"><span class="subject-name">História</span><div class="bar-track"><div class="bar-fill" style="width:55%;background:var(--rose)"></div></div><span class="bar-grade">5.5</span></div>
-          <div class="subject-bar"><span class="subject-name">Inglês</span><div class="bar-track"><div class="bar-fill" style="width:88%;background:var(--lilac)"></div></div><span class="bar-grade">8.8</span></div>
-        </div>
-      </div>
-
-      <!-- APOIO -->
-      <div class="page" id="page-apoio">
-        <div class="page-title">Apoio personalizado</div>
-        <div class="page-subtitle">Sugestões baseadas no seu acompanhamento de hoje</div>
-
-        <div class="card">
-          <div class="card-title">Com base no seu check-in <span class="badge badge-amber" id="mood-badge">😟 Ansioso</span></div>
-          <div class="tip-card amber">
-            <div class="tip-label" style="color:#92400e;">Respiração e foco</div>
-            <div class="tip-text">Antes de estudar, experimente 3 minutos de respiração profunda. Inspire por 4 segundos, segure por 4 e expire por 6. Isso ativa o estado de calma.</div>
-          </div>
-          <div class="tip-card blue">
-            <div class="tip-label" style="color:#0369a1;">Técnica de estudo</div>
-            <div class="tip-text">Divida seu estudo em blocos de 25 minutos com pausas de 5 (Técnica Pomodoro). Isso reduz a sensação de sobrecarga e melhora a concentração.</div>
-          </div>
-          <div class="tip-card green">
-            <div class="tip-label" style="color:var(--teal-deep);">Conversar ajuda</div>
-            <div class="tip-text">Se a ansiedade estiver pesando, converse com o orientador pedagógico. Falar sobre o que sente é um ato de autocuidado e coragem.</div>
-          </div>
-          <div class="tip-card lilac">
-            <div class="tip-label" style="color:var(--lilac-deep);">Mensagem motivacional</div>
-            <div class="tip-text">Você não precisa ser perfeito(a) para avançar. Cada pequeno passo conta. Reconheça seu próprio progresso hoje! ✨</div>
-          </div>
-        </div>
-
-        <div class="section-label">Recursos de apoio</div>
-        <div class="grid-2">
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-title">Organizando sua rotina</div>
-            <div style="font-size:13px;color:var(--text2);line-height:1.65;">Monte um plano semanal com horários fixos para estudo. A previsibilidade reduz a ansiedade e aumenta a sensação de controle.</div>
-            <div style="margin-top:12px;"><span class="badge badge-teal">Organização</span></div>
-          </div>
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-title">Inteligência emocional</div>
-            <div style="font-size:13px;color:var(--text2);line-height:1.65;">Reconhecer suas emoções é o primeiro passo para gerenciá-las. Identifique o que te deixa ansioso e explore estratégias de resposta.</div>
-            <div style="margin-top:12px;"><span class="badge badge-lilac">Autoconhecimento</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- CARREIRA -->
-      <div class="page" id="page-carreira">
-        <div class="page-title">Projeto de Vida</div>
-        <div class="page-subtitle">Competências socioemocionais para o mundo do trabalho</div>
-
-        <div class="hero-banner" style="background:linear-gradient(135deg,#2dd4bf,#a78bfa);">
-          <div class="hero-greeting" style="font-size:14px;">Mercado contemporâneo</div>
-          <div class="hero-sub">Além do conhecimento técnico, o mercado exige equilíbrio emocional, empatia, resiliência e capacidade de adaptação.</div>
-        </div>
-
-        <div class="grid-comp">
-          <div class="comp-card">
-            <div class="comp-icon" style="background:var(--lilac-light);">💬</div>
-            <div class="comp-title">Comunicação</div>
-            <div class="comp-desc">Expressar ideias com clareza, ouvir ativamente e adaptar sua linguagem ao contexto e ao interlocutor.</div>
-            <div class="prog-bar"><div class="prog-fill" style="width:72%;background:var(--lilac);"></div></div>
-            <div class="prog-label"><span>Progresso</span><span class="prog-pct">72%</span></div>
-          </div>
-          <div class="comp-card">
-            <div class="comp-icon" style="background:var(--teal-light);">🌱</div>
-            <div class="comp-title">Resiliência</div>
-            <div class="comp-desc">Superar obstáculos, aprender com erros e manter o equilíbrio diante de desafios e mudanças.</div>
-            <div class="prog-bar"><div class="prog-fill" style="width:58%;background:var(--teal);"></div></div>
-            <div class="prog-label"><span>Progresso</span><span class="prog-pct">58%</span></div>
-          </div>
-          <div class="comp-card">
-            <div class="comp-icon" style="background:var(--amber-light);">🤝</div>
-            <div class="comp-title">Trabalho em equipe</div>
-            <div class="comp-desc">Colaborar, dividir responsabilidades e valorizar as contribuições de cada integrante do grupo.</div>
-            <div class="prog-bar"><div class="prog-fill" style="width:80%;background:var(--amber);"></div></div>
-            <div class="prog-label"><span>Progresso</span><span class="prog-pct">80%</span></div>
-          </div>
-          <div class="comp-card">
-            <div class="comp-icon" style="background:#ede9fe;">🎯</div>
-            <div class="comp-title">Liderança</div>
-            <div class="comp-desc">Inspirar, organizar e motivar pessoas em direção a objetivos comuns com responsabilidade.</div>
-            <div class="prog-bar"><div class="prog-fill" style="width:44%;background:#a78bfa;"></div></div>
-            <div class="prog-label"><span>Progresso</span><span class="prog-pct">44%</span></div>
-          </div>
-          <div class="comp-card">
-            <div class="comp-icon" style="background:var(--rose-light);">📋</div>
-            <div class="comp-title">Organização</div>
-            <div class="comp-desc">Planejar tarefas, gerenciar tempo e manter a consistência nos compromissos escolares e profissionais.</div>
-            <div class="prog-bar"><div class="prog-fill" style="width:65%;background:var(--rose);"></div></div>
-            <div class="prog-label"><span>Progresso</span><span class="prog-pct">65%</span></div>
-          </div>
-          <div class="comp-card">
-            <div class="comp-icon" style="background:var(--green-light);">🔍</div>
-            <div class="comp-title">Autonomia</div>
-            <div class="comp-desc">Tomar iniciativa, buscar soluções de forma independente e assumir responsabilidades com maturidade.</div>
-            <div class="prog-bar"><div class="prog-fill" style="width:53%;background:var(--green);"></div></div>
-            <div class="prog-label"><span>Progresso</span><span class="prog-pct">53%</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- GESTOR -->
-      <div class="page" id="page-gestor">
-        <div class="page-title">Visão da Escola</div>
-        <div class="page-subtitle">Painel pedagógico — dados agregados e anônimos</div>
-
-        <div class="role-switcher">
-          <button class="role-btn active" onclick="switchRole(this)">Professor</button>
-          <button class="role-btn" onclick="switchRole(this)">Coordenador</button>
-          <button class="role-btn" onclick="switchRole(this)">Gestor</button>
-        </div>
-
-        <div class="grid-3">
-          <div class="metric-card"><div class="metric-label">Alunos na turma</div><div class="metric-value" style="color:var(--lilac-deep)">32</div><div class="metric-sub">3º Ano B</div></div>
-          <div class="metric-card"><div class="metric-label">Engajamento médio</div><div class="metric-value" style="color:var(--teal-deep)">74%</div><div class="metric-sub">+5% vs semana ant.</div></div>
-          <div class="metric-card"><div class="metric-label">Check-ins hoje</div><div class="metric-value" style="color:var(--green-deep)">28</div><div class="metric-sub">87% de adesão</div></div>
-        </div>
-
-        <div class="grid-2">
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-title">Humor da turma hoje</div>
-            <div class="chart-area">
-              <div class="chart-col"><div class="chart-val">3</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:20%;background:var(--rose);"></div></div><div class="chart-label">😔</div></div>
-              <div class="chart-col"><div class="chart-val">5</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:33%;background:var(--amber);"></div></div><div class="chart-label">😟</div></div>
-              <div class="chart-col"><div class="chart-val">8</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:53%;background:#c4b5fd;"></div></div><div class="chart-label">😐</div></div>
-              <div class="chart-col"><div class="chart-val">9</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:60%;background:var(--lilac);"></div></div><div class="chart-label">🙂</div></div>
-              <div class="chart-col"><div class="chart-val">3</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:20%;background:var(--teal);"></div></div><div class="chart-label">😄</div></div>
-            </div>
-            <div style="font-size:10.5px;color:var(--text3);margin-top:8px;">Dados anônimos — identificação individual não é exibida</div>
-          </div>
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-title">Alertas de atenção</div>
-            <div class="alert-item warn">
-              <div class="alert-dot" style="background:#d97706;"></div>
-              <div><div class="alert-text">3 alunos com queda de frequência</div><div class="alert-meta">Recomenda-se contato com familiares</div></div>
-            </div>
-            <div class="alert-item danger">
-              <div class="alert-dot" style="background:#be123c;"></div>
-              <div><div class="alert-text">2 alunos com humor baixo por 3 dias seguidos</div><div class="alert-meta">Encaminhamento para orientação pedagógica</div></div>
-            </div>
-            <div class="alert-item ok">
-              <div class="alert-dot" style="background:var(--green-deep);"></div>
-              <div><div class="alert-text">Turma com média geral acima de 7.0</div><div class="alert-meta">Engajamento estável e crescente</div></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-label" style="margin-top:18px;">Engajamento semanal da turma</div>
-        <div class="card">
-          <div class="chart-area" style="height:90px;">
-            <div class="chart-col"><div class="chart-val">68</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:68%;background:#c4b5fd;"></div></div><div class="chart-label">Seg</div></div>
-            <div class="chart-col"><div class="chart-val">71</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:71%;background:#c4b5fd;"></div></div><div class="chart-label">Ter</div></div>
-            <div class="chart-col"><div class="chart-val">65</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:65%;background:#c4b5fd;"></div></div><div class="chart-label">Qua</div></div>
-            <div class="chart-col"><div class="chart-val">79</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:79%;background:var(--lilac);"></div></div><div class="chart-label">Qui</div></div>
-            <div class="chart-col"><div class="chart-val">74</div><div class="chart-bar-outer"><div class="chart-bar-inner" style="height:74%;background:#c4b5fd;"></div></div><div class="chart-label">Sex</div></div>
-          </div>
-        </div>
-      </div>
-
-    </main>
+<!-- Processando -->
+<div class="overlay" id="overlay" hidden>
+  <div class="overlay-caixa">
+    <div class="pulso" aria-hidden="true">◐</div>
+    <p id="overlay-texto">Processando suas respostas…</p>
   </div>
 </div>
 
-<!-- BOTTOM NAV (mobile) -->
-<nav class="bottom-nav" id="bottom-nav">
-  <div class="bn-item active" id="bn-dashboard" onclick="navigate('dashboard')">
-    <svg viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="2" width="7" height="7" rx="2"/><rect x="11" y="2" width="7" height="7" rx="2" opacity=".5"/><rect x="2" y="11" width="7" height="7" rx="2" opacity=".5"/><rect x="11" y="11" width="7" height="7" rx="2"/></svg>
-    <span>Início</span>
-  </div>
-  <div class="bn-item" id="bn-apoio" onclick="navigate('apoio')">
-    <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v4a1 1 0 00.293.707l2.5 2.5a1 1 0 101.414-1.414L11 8.586V5z"/></svg>
-    <span>Apoio</span>
-  </div>
-  <div class="bn-item" id="bn-carreira" onclick="navigate('carreira')">
-    <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L10 4.414 4.707 9.707a1 1 0 01-1.414 0z"/><path d="M4 9v9a1 1 0 001 1h4v-5h2v5h4a1 1 0 001-1V9"/></svg>
-    <span>Carreira</span>
-  </div>
-  <div class="bn-item" id="bn-gestor" onclick="navigate('gestor')">
-    <svg viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
-    <span>Escola</span>
-  </div>
-</nav>
+</main>
 
-<!-- OVERLAY -->
-<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+<footer class="rodape">
+  <p>Ferramenta educacional de autoconhecimento baseada na Matriz Etiológica da
+  Personalidade. Os resultados são uma premissa de reflexão e não constituem
+  diagnóstico psicológico.</p>
+</footer>
 
-<script>
-  const pages = ['dashboard','apoio','carreira','gestor'];
-  const moodData = {
-    triste: { msg:'Registrado. Sentir tristeza é humano.', sub:'Separamos sugestões de apoio para você em "Apoio e Dicas". Você não está sozinho(a).', badge:'😔 Triste', bg:'var(--rose-light)', color:'#be123c' },
-    ansioso: { msg:'Entendemos. A ansiedade é muito comum nessa fase.', sub:'Veja dicas práticas de respiração e organização em "Apoio e Dicas".', badge:'😟 Ansioso', bg:'var(--amber-light)', color:'#92400e' },
-    neutro: { msg:'Ok! Dia neutro, tudo bem.', sub:'Confira seu progresso nas matérias e veja o que gostaria de reforçar hoje.', badge:'😐 Neutro', bg:'#f1f5f9', color:'#475569' },
-    bem: { msg:'Que bom que você está bem!', sub:'Aproveite para avançar nos estudos e explorar suas competências de carreira.', badge:'🙂 Bem', bg:'var(--lilac-light)', color:'var(--lilac-deep)' },
-    otimo: { msg:'Ótimo! Energia positiva registrada! ✨', sub:'Continue assim! Que tal explorar a seção "Projeto de Vida" hoje?', badge:'😄 Ótimo', bg:'var(--teal-light)', color:'var(--teal-deep)' }
-  };
-
-  function navigate(page) {
-    pages.forEach(p => {
-      document.getElementById('page-' + p).classList.remove('active');
-      const nav = document.getElementById('nav-' + p);
-      const bn = document.getElementById('bn-' + p);
-      if (nav) nav.classList.remove('active');
-      if (bn) bn.classList.remove('active');
-    });
-    document.getElementById('page-' + page).classList.add('active');
-    const nav = document.getElementById('nav-' + page);
-    const bn = document.getElementById('bn-' + page);
-    if (nav) nav.classList.add('active');
-    if (bn) bn.classList.add('active');
-    document.getElementById('main').scrollTop = 0;
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar.classList.contains('open')) toggleSidebar();
-  }
-
-  function selectMood(el, mood) {
-    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
-    el.classList.add('selected');
-    const d = moodData[mood];
-    const r = document.getElementById('checkin-result');
-    document.getElementById('checkin-msg').textContent = d.msg;
-    document.getElementById('checkin-msg').style.color = d.color;
-    document.getElementById('checkin-sub').textContent = d.sub;
-    document.getElementById('checkin-sub').style.color = d.color;
-    r.style.background = d.bg;
-    r.classList.add('visible');
-    const badge = document.getElementById('mood-badge');
-    if (badge) { badge.textContent = d.badge; }
-  }
-
-  function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
-    sidebar.classList.toggle('open');
-    overlay.classList.toggle('visible');
-  }
-
-  function switchRole(btn) {
-    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
-</script>
+<script src="app.js"></script>
 </body>
 </html>
