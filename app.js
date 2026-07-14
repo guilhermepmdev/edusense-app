@@ -1,19 +1,23 @@
 /* ==========================================================================
    Matriz Etiológica da Personalidade — lógica da aplicação
-   Dois modos:
-     1) IA (Gemini): entrevista adaptativa + análise, com a chave do usuário.
-        As chamadas vão do navegador direto para a API do Google.
-     2) Demonstração: roteiro fixo de perguntas + processamento local.
-   Nenhum dado é enviado a servidores deste site.
+   Três formas de acesso:
+     1) "google": login com conta Google (Firebase Auth) e chamadas ao Gemini
+        via Firebase AI Logic — sem chave no código; requer firebase-config.js.
+     2) "chave": o usuário informa a própria chave da API Gemini; chamadas
+        vão do navegador direto para a API do Google.
+     3) "demo": roteiro fixo de perguntas + processamento local.
+   Nenhum dado passa por servidores dos autores do site.
    ========================================================================== */
 
 "use strict";
 
 /* ---------------------- Configuração ---------------------- */
 
-// Modelos tentados em ordem (o primeiro disponível para a chave é usado)
-const MODELOS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const VERSAO_FIREBASE = "12.0.0"; // versão do SDK carregada via CDN do Google
+const MODELO_IA = "gemini-2.5-flash";
+const MODELOS_REST = ["gemini-2.5-flash", "gemini-2.0-flash"]; // fallback no modo chave
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
+const MIN_RESPOSTAS_IA = 6;
 
 const DIMENSOES = [
   { id: "biologica", nome: "Biológica / Genética",
@@ -30,7 +34,6 @@ const DIMENSOES = [
     desc: "Busca de sentido, crenças existenciais, espiritualidade." }
 ];
 
-// Roteiro do modo demonstração: [chave, pergunta]
 const ROTEIRO_DEMO = [
   ["biologica",   "Vamos começar pela dimensão Biológica. Que características você acredita ter \"de nascença\"? Pense em temperamento, nível de energia, tendência à calma ou à ansiedade."],
   ["psicologica", "Agora a dimensão Psicológica. Que experiências da sua infância ou vínculos afetivos marcaram sua forma de sentir e reagir?"],
@@ -46,19 +49,50 @@ const ROTEIRO_DEMO = [
   ["objetivo",    "Para fechar: o que você mais gostaria de desenvolver ou transformar em si nos próximos meses?"]
 ];
 
-const MIN_RESPOSTAS_IA = 6; // mínimo antes de liberar "Concluir" no modo IA
+const INSTRUCAO_ENTREVISTA = `Você é um entrevistador empático e profissional conduzindo uma coleta de dados para a "Matriz Etiológica da Personalidade" (etiologia = estudo das causas e origens).
+Objetivo: explorar, UMA PERGUNTA POR VEZ, as origens da personalidade da pessoa nestas áreas:
+1) Biológica/Genética (temperamento inato); 2) Psicológica (infância, vínculos, marcos emocionais); 3) Cognitiva (forma de pensar/aprender/decidir); 4) Social/Cultural (família, cultura, religião, grupos); 5) Histórico/Contextual (eventos de vida marcantes); 6) Filosófico-Espiritual (sentido, propósito).
+Depois, colete: Certezas (o que a pessoa tem convicção de ser), Suposições (traços situacionais), Dúvidas (o que os outros dizem e ela questiona), Influências positivas e negativas, e um objetivo de desenvolvimento.
+Regras: escreva em português do Brasil; seja acolhedor e breve (2 a 4 frases por vez); faça UMA pergunta por mensagem; aprofunde quando a resposta for vaga; não dê diagnósticos; após cobrir todos os temas (cerca de 12 perguntas), agradeça e diga que a pessoa pode clicar em "Concluir coleta e gerar matriz".`;
+
+const INSTRUCAO_ANALISE = `Você é um analista que preenche a "Matriz Etiológica da Personalidade" a partir de uma entrevista.
+Responda SOMENTE com um objeto JSON válido, sem markdown, sem texto antes ou depois, exatamente nesta estrutura:
+{
+ "dimensoes": {
+  "biologica":  {"fatores": "...", "impacto": "..."},
+  "psicologica":{"fatores": "...", "impacto": "..."},
+  "cognitiva":  {"fatores": "...", "impacto": "..."},
+  "social":     {"fatores": "...", "impacto": "..."},
+  "historica":  {"fatores": "...", "impacto": "..."},
+  "espiritual": {"fatores": "...", "impacto": "..."}
+ },
+ "certezas": ["..."],
+ "suposicoes": ["..."],
+ "duvidas": ["..."],
+ "influencias_positivas": ["..."],
+ "influencias_negativas": ["..."],
+ "plano": {
+   "premissa": "parágrafo-síntese que conecta as causas identificadas ao potencial de desenvolvimento",
+   "pontos_fortes": ["..."],
+   "pontos_a_desenvolver": ["..."],
+   "acoes": [{"acao": "...", "prazo": "...", "indicador": "..."}]
+ }
+}
+Baseie-se apenas no que a pessoa disse; onde faltar informação, escreva "Não explorado na entrevista". Use linguagem acolhedora, em português do Brasil. Inclua de 3 a 5 ações concretas. Não faça diagnósticos clínicos.`;
 
 /* ---------------------- Estado ---------------------- */
 
 const estado = {
-  modo: null,           // "ia" | "demo"
+  modo: null,            // "google" | "chave" | "demo"
   chave: null,
-  modelo: MODELOS[0],
-  transcricao: [],      // [{papel:"ia"|"usuario", texto}]
-  respostasDemo: {},    // chave do roteiro -> resposta
+  modeloRest: MODELOS_REST[0],
+  firebase: null,        // { app, ai, getGenerativeModel }
+  usuario: null,         // dados do login Google
+  transcricao: [],
+  respostasDemo: {},
   indiceDemo: 0,
   respostasUsuario: 0,
-  resultado: null       // JSON final da matriz
+  resultado: null
 };
 
 /* ---------------------- Utilidades de interface ---------------------- */
@@ -68,12 +102,14 @@ const $ = (sel) => document.querySelector(sel);
 function irParaEtapa(nome) {
   document.querySelectorAll(".etapa").forEach(e => e.classList.remove("visivel"));
   $("#etapa-" + nome).classList.add("visivel");
+  const mapa = { acesso: "inicio" }; // tela de acesso pertence ao passo "Início"
+  const efetiva = mapa[nome] || nome;
+  const ordem = ["inicio", "coleta", "matriz", "plano"];
   document.querySelectorAll(".passo").forEach(p => {
     const alvo = p.dataset.etapa;
-    p.classList.toggle("ativo", alvo === nome);
-    const ordem = ["inicio", "coleta", "matriz", "plano"];
-    p.classList.toggle("feito", ordem.indexOf(alvo) < ordem.indexOf(nome));
-    if (alvo === nome) p.disabled = false;
+    p.classList.toggle("ativo", alvo === efetiva);
+    p.classList.toggle("feito", ordem.indexOf(alvo) < ordem.indexOf(efetiva));
+    if (alvo === efetiva) p.disabled = false;
   });
   window.scrollTo({ top: 0 });
 }
@@ -118,13 +154,69 @@ function overlay(mostrar, texto) {
   if (texto) $("#overlay-texto").textContent = texto;
 }
 
-/* ---------------------- API Gemini ---------------------- */
+/* ---------------------- Acesso: login com Google (Firebase) ---------------------- */
 
-async function chamarGemini(contents, systemInstruction) {
+function firebaseConfigurado() {
+  return typeof FIREBASE_CONFIG !== "undefined" &&
+         FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId && FIREBASE_CONFIG.appId;
+}
+
+async function entrarComGoogle() {
+  if (!firebaseConfigurado()) {
+    $("#aviso-firebase").textContent =
+      "O login com Google ainda não foi configurado neste site (arquivo firebase-config.js vazio). Use uma das outras opções abaixo.";
+    return;
+  }
+  overlay(true, "Abrindo login do Google…");
+  try {
+    const base = "https://www.gstatic.com/firebasejs/" + VERSAO_FIREBASE + "/";
+    const [{ initializeApp }, auth, ia] = await Promise.all([
+      import(base + "firebase-app.js"),
+      import(base + "firebase-auth.js"),
+      import(base + "firebase-ai.js")
+    ]);
+    const app = initializeApp(FIREBASE_CONFIG);
+    const resultado = await auth.signInWithPopup(auth.getAuth(app), new auth.GoogleAuthProvider());
+    estado.usuario = { nome: resultado.user.displayName, email: resultado.user.email };
+    estado.firebase = {
+      app,
+      ai: ia.getAI(app, { backend: new ia.GoogleAIBackend() }),
+      getGenerativeModel: ia.getGenerativeModel
+    };
+    estado.modo = "google";
+    overlay(false);
+    $("#coleta-modo-info").textContent =
+      "Conectado como " + (estado.usuario.nome || estado.usuario.email) + " · entrevista conduzida por IA (Gemini).";
+    iniciarEntrevistaIA();
+  } catch (e) {
+    overlay(false);
+    const msg = String(e && e.message || e);
+    if (msg.includes("popup-closed")) return; // usuário fechou o login
+    $("#aviso-firebase").textContent = "Não foi possível entrar: " + msg;
+  }
+}
+
+/* ---------------------- Chamadas ao Gemini ---------------------- */
+
+// Uma única porta de entrada: recebe o histórico e a instrução de sistema,
+// devolve o texto — independentemente do modo de acesso.
+async function gerarConteudo(contents, systemInstruction) {
+  if (estado.modo === "google") {
+    const modelo = estado.firebase.getGenerativeModel(estado.firebase.ai, {
+      model: MODELO_IA,
+      systemInstruction: { parts: [{ text: systemInstruction }] },
+      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+    });
+    const resposta = await modelo.generateContent({ contents });
+    const texto = resposta.response.text();
+    if (!texto) throw new Error("Resposta vazia do modelo.");
+    return texto.trim();
+  }
+  // modo "chave": REST direto, com fallback de modelo
   let ultimoErro = null;
-  for (const modelo of [estado.modelo, ...MODELOS.filter(m => m !== estado.modelo)]) {
+  for (const m of [estado.modeloRest, ...MODELOS_REST.filter(x => x !== estado.modeloRest)]) {
     try {
-      const resp = await fetch(API_BASE + modelo + ":generateContent?key=" + encodeURIComponent(estado.chave), {
+      const resp = await fetch(API_BASE + m + ":generateContent?key=" + encodeURIComponent(estado.chave), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -133,14 +225,11 @@ async function chamarGemini(contents, systemInstruction) {
           generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
         })
       });
-      if (!resp.ok) {
-        const corpo = await resp.text();
-        throw new Error("HTTP " + resp.status + ": " + corpo.slice(0, 300));
-      }
+      if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + (await resp.text()).slice(0, 300));
       const dados = await resp.json();
       const texto = dados?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
       if (!texto) throw new Error("Resposta vazia do modelo.");
-      estado.modelo = modelo; // memoriza o modelo que funcionou
+      estado.modeloRest = m;
       return texto.trim();
     } catch (e) { ultimoErro = e; }
   }
@@ -154,50 +243,13 @@ function transcricaoParaContents() {
   }));
 }
 
-const INSTRUCAO_ENTREVISTA = `Você é um entrevistador empático e profissional conduzindo uma coleta de dados para a "Matriz Etiológica da Personalidade" (etiologia = estudo das causas e origens).
-Objetivo: explorar, UMA PERGUNTA POR VEZ, as origens da personalidade da pessoa nestas áreas:
-1) Biológica/Genética (temperamento inato); 2) Psicológica (infância, vínculos, marcos emocionais); 3) Cognitiva (forma de pensar/aprender/decidir); 4) Social/Cultural (família, cultura, religião, grupos); 5) Histórico/Contextual (eventos de vida marcantes); 6) Filosófico-Espiritual (sentido, propósito).
-Depois, colete: Certezas (o que a pessoa tem convicção de ser), Suposições (traços situacionais), Dúvidas (o que os outros dizem e ela questiona), Influências positivas e negativas, e um objetivo de desenvolvimento.
-Regras: escreva em português do Brasil; seja acolhedor e breve (2 a 4 frases por vez); faça UMA pergunta por mensagem; aprofunde quando a resposta for vaga; não dê diagnósticos; após cobrir todos os temas (cerca de 12 perguntas), agradeça e diga que a pessoa pode clicar em "Concluir coleta e gerar matriz".`;
+/* ---------------------- Fluxo: entrevista com IA (google ou chave) ---------------------- */
 
-const INSTRUCAO_ANALISE = `Você é um analista que preenche a "Matriz Etiológica da Personalidade" a partir de uma entrevista.
-Responda SOMENTE com um objeto JSON válido, sem markdown, sem texto antes ou depois, exatamente nesta estrutura:
-{
- "dimensoes": {
-  "biologica":  {"fatores": "...", "impacto": "..."},
-  "psicologica":{"fatores": "...", "impacto": "..."},
-  "cognitiva":  {"fatores": "...", "impacto": "..."},
-  "social":     {"fatores": "...", "impacto": "..."},
-  "historica":  {"fatores": "...", "impacto": "..."},
-  "espiritual": {"fatores": "...", "impacto": "..."}
- },
- "certezas": ["..."],
- "suposicoes": ["..."],
- "duvidas": ["..."],
- "influencias_positivas": ["..."],
- "influencias_negativas": ["..."],
- "plano": {
-   "premissa": "parágrafo-síntese que conecta as causas identificadas ao potencial de desenvolvimento",
-   "pontos_fortes": ["..."],
-   "pontos_a_desenvolver": ["..."],
-   "acoes": [{"acao": "...", "prazo": "...", "indicador": "..."}]
- }
-}
-Baseie-se apenas no que a pessoa disse; onde faltar informação, escreva "Não explorado na entrevista". Use linguagem acolhedora, em português do Brasil. Inclua de 3 a 5 ações concretas. Não faça diagnósticos clínicos.`;
-
-/* ---------------------- Fluxo: modo IA ---------------------- */
-
-async function iniciarModoIA() {
-  const chave = $("#chave-api").value.trim();
-  if (!chave) { alert("Cole sua chave da API Gemini para usar o Modo IA, ou use o Modo Demonstração."); return; }
-  estado.modo = "ia";
-  estado.chave = chave;
-  try { localStorage.setItem("matriz_chave_gemini", chave); } catch (_) {}
-  $("#coleta-modo-info").textContent = "Modo IA · entrevista adaptativa conduzida pelo Gemini com a sua chave.";
+async function iniciarEntrevistaIA() {
   irParaEtapa("coleta");
   mostrarDigitando(true);
   try {
-    const abertura = await chamarGemini(
+    const abertura = await gerarConteudo(
       [{ role: "user", parts: [{ text: "Inicie a entrevista se apresentando brevemente e fazendo a primeira pergunta." }] }],
       INSTRUCAO_ENTREVISTA
     );
@@ -205,8 +257,18 @@ async function iniciarModoIA() {
     adicionarBalao("ia", abertura);
   } catch (e) {
     mostrarDigitando(false);
-    adicionarBalao("ia", "Não consegui conectar à API do Gemini. Verifique se a chave está correta e ativa.\n\nDetalhe técnico: " + e.message);
+    adicionarBalao("ia", "Não consegui conectar ao serviço de IA. Verifique a conexão ou tente outra forma de acesso.\n\nDetalhe técnico: " + e.message);
   }
+}
+
+function iniciarModoChave() {
+  const chave = $("#chave-api").value.trim();
+  if (!chave) { alert("Cole sua chave da API Gemini ou escolha outra forma de acesso."); return; }
+  estado.modo = "chave";
+  estado.chave = chave;
+  try { localStorage.setItem("matriz_chave_gemini", chave); } catch (_) {}
+  $("#coleta-modo-info").textContent = "Acesso com chave própria · entrevista conduzida por IA (Gemini).";
+  iniciarEntrevistaIA();
 }
 
 async function responderIA(textoUsuario) {
@@ -215,12 +277,12 @@ async function responderIA(textoUsuario) {
   atualizarProgresso();
   mostrarDigitando(true);
   try {
-    const resposta = await chamarGemini(transcricaoParaContents(), INSTRUCAO_ENTREVISTA);
+    const resposta = await gerarConteudo(transcricaoParaContents(), INSTRUCAO_ENTREVISTA);
     mostrarDigitando(false);
     adicionarBalao("ia", resposta);
   } catch (e) {
     mostrarDigitando(false);
-    adicionarBalao("ia", "Houve uma falha de conexão. Você pode tentar enviar novamente ou concluir a coleta com o que já temos. (" + e.message + ")");
+    adicionarBalao("ia", "Houve uma falha de conexão. Tente enviar novamente ou conclua a coleta com o que já temos. (" + e.message + ")");
   }
 }
 
@@ -231,10 +293,10 @@ async function processarIA() {
     { role: "user", parts: [{ text: "A entrevista terminou. Gere agora o JSON da matriz conforme as instruções." }] }
   ];
   try {
-    let texto = await chamarGemini(contents, INSTRUCAO_ANALISE);
+    let texto = await gerarConteudo(contents, INSTRUCAO_ANALISE);
     estado.resultado = extrairJSON(texto);
     if (!estado.resultado) {
-      texto = await chamarGemini(
+      texto = await gerarConteudo(
         [...contents, { role: "model", parts: [{ text: texto }] },
          { role: "user", parts: [{ text: "Sua resposta anterior não era JSON puro. Responda novamente SOMENTE com o objeto JSON." }] }],
         INSTRUCAO_ANALISE
@@ -288,7 +350,6 @@ function responderDemo(textoUsuario) {
 }
 
 function listar(texto) {
-  // divide uma resposta livre em itens (por ; , "e" ou quebras de linha)
   return String(texto || "")
     .split(/\n|;|,| e (?=[a-záéíóúâêôãõç])/gi)
     .map(s => s.trim())
@@ -301,7 +362,6 @@ function processarDemo() {
   const r = estado.respostasDemo;
   const naoInformado = "Não informado nesta demonstração.";
 
-  const dims = {};
   const impactos = {
     biologica:  "Base do temperamento: influencia energia, reatividade emocional e disposição natural.",
     psicologica:"Molda padrões emocionais, autoestima e a forma de se vincular às pessoas.",
@@ -310,9 +370,8 @@ function processarDemo() {
     historica:  "Gera adaptações, visão de mundo e atitudes diante de novos desafios.",
     espiritual: "Sustenta propósito, resiliência existencial e coerência entre valores e ações."
   };
-  for (const d of DIMENSOES) {
-    dims[d.id] = { fatores: r[d.id] || naoInformado, impacto: impactos[d.id] };
-  }
+  const dims = {};
+  for (const d of DIMENSOES) dims[d.id] = { fatores: r[d.id] || naoInformado, impacto: impactos[d.id] };
 
   const objetivo = (r.objetivo || "desenvolver os pontos identificados").trim();
   const duvidas = listar(r.duvidas);
@@ -337,7 +396,7 @@ function processarDemo() {
     influencias_positivas: listar(r.positivas).length ? listar(r.positivas) : [naoInformado],
     influencias_negativas: negativas.length ? negativas : [naoInformado],
     plano: {
-      premissa: "Sua personalidade resulta da interação entre predisposições de base, experiências emocionais e o contexto social e histórico em que você se formou. O ponto de partida do seu desenvolvimento é o objetivo declarado — " + objetivo + " — apoiado nas suas influências positivas e nas certezas que você já reconhece em si. As dúvidas e influências negativas mapeadas indicam onde concentrar atenção. (Análise demonstrativa gerada localmente; o Modo IA produz uma síntese personalizada.)",
+      premissa: "Sua personalidade resulta da interação entre predisposições de base, experiências emocionais e o contexto social e histórico em que você se formou. O ponto de partida do seu desenvolvimento é o objetivo declarado — " + objetivo + " — apoiado nas suas influências positivas e nas certezas que você já reconhece em si. As dúvidas e influências negativas mapeadas indicam onde concentrar atenção. (Análise demonstrativa gerada localmente; o acesso com login ou chave produz uma síntese personalizada por IA.)",
       pontos_fortes: listar(r.certezas).concat(listar(r.positivas)).slice(0, 5),
       pontos_a_desenvolver: duvidas.concat(negativas).slice(0, 5),
       acoes
@@ -353,6 +412,11 @@ function processarDemo() {
 
 /* ---------------------- Renderização ---------------------- */
 
+function escapar(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function celulaHTML(classe, rotulo, titulo, corpoHTML) {
   return `<article class="celula ${classe}">
     <span class="rotulo">${rotulo}</span>
@@ -363,11 +427,6 @@ function celulaHTML(classe, rotulo, titulo, corpoHTML) {
 
 function listaHTML(itens) {
   return "<ul>" + (itens || []).map(i => `<li>${escapar(i)}</li>`).join("") + "</ul>";
-}
-
-function escapar(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 function renderizarMatriz() {
@@ -397,7 +456,7 @@ function renderizarMatriz() {
 
 function renderizarPlano() {
   const p = estado.resultado.plano || {};
-  let html = `<div class="plano-premissa">
+  $("#plano-conteudo").innerHTML = `<div class="plano-premissa">
     <h3>Premissa de desenvolvimento</h3>
     <p>${escapar(p.premissa)}</p>
   </div>
@@ -413,7 +472,6 @@ function renderizarPlano() {
       </tr>`).join("")}
     </tbody>
   </table>`;
-  $("#plano-conteudo").innerHTML = html;
 }
 
 /* ---------------------- Exportação ---------------------- */
@@ -434,19 +492,31 @@ function baixarJSON() {
 /* ---------------------- Inicialização ---------------------- */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Resumo das dimensões na tela inicial
+  // Garante que o overlay comece fechado, mesmo se o CSS falhar em carregar
+  overlay(false);
+
   $("#dim-resumo").innerHTML = DIMENSOES.map(d =>
     `<div class="dim-item"><strong>${d.nome}</strong><em>${d.desc}</em></div>`).join("");
 
-  // Chave salva anteriormente (apenas neste navegador)
   try {
     const salva = localStorage.getItem("matriz_chave_gemini");
     if (salva) $("#chave-api").value = salva;
   } catch (_) {}
 
-  $("#btn-modo-ia").addEventListener("click", iniciarModoIA);
-  $("#btn-modo-demo").addEventListener("click", iniciarModoDemo);
+  // Landing → tela de acesso
+  document.querySelectorAll("[data-iniciar]").forEach(b =>
+    b.addEventListener("click", () => irParaEtapa("acesso")));
+  $("#btn-voltar-inicio").addEventListener("click", () => irParaEtapa("inicio"));
 
+  // Formas de acesso
+  $("#btn-login-google").addEventListener("click", entrarComGoogle);
+  $("#btn-modo-chave").addEventListener("click", iniciarModoChave);
+  $("#btn-modo-demo").addEventListener("click", iniciarModoDemo);
+  if (!firebaseConfigurado()) {
+    $("#aviso-firebase").textContent = "Disponível quando o administrador do site configurar o Firebase.";
+  }
+
+  // Chat
   $("#form-chat").addEventListener("submit", (ev) => {
     ev.preventDefault();
     const campo = $("#campo-resposta");
@@ -456,8 +526,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (estado.modo === "demo") responderDemo(texto);
     else responderIA(texto);
   });
-
-  // Enter envia; Shift+Enter quebra linha
   $("#campo-resposta").addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && !ev.shiftKey) {
       ev.preventDefault();
@@ -475,7 +543,6 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#btn-baixar-json").addEventListener("click", baixarJSON);
   $("#btn-recomecar").addEventListener("click", () => location.reload());
 
-  // Navegação pelo stepper (apenas etapas já visitadas)
   document.querySelectorAll(".passo").forEach(p =>
     p.addEventListener("click", () => { if (!p.disabled) irParaEtapa(p.dataset.etapa); }));
 });
