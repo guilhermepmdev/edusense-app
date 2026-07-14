@@ -213,29 +213,42 @@ async function gerarConteudo(contents, systemInstruction) {
     if (!texto) throw new Error("Resposta vazia do modelo.");
     return texto.trim();
   }
-  // modo "chave": REST direto, com fallback de modelo
+  // modo "chave": REST direto, com fallback de modelo e nova tentativa em congestionamento
   let ultimoErro = null;
   for (const m of [estado.modeloRest, ...MODELOS_REST.filter(x => x !== estado.modeloRest)]) {
-    try {
-      const resp = await fetch(API_BASE + m + ":generateContent?key=" + encodeURIComponent(estado.chave), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents,
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-        })
-      });
-      if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + (await resp.text()).slice(0, 300));
-      const dados = await resp.json();
-      const texto = dados?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
-      if (!texto) throw new Error("Resposta vazia do modelo.");
-      estado.modeloRest = m;
-      return texto.trim();
-    } catch (e) { ultimoErro = e; }
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      try {
+        const resp = await fetch(API_BASE + m + ":generateContent?key=" + encodeURIComponent(estado.chave), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents,
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+          })
+        });
+        if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + (await resp.text()).slice(0, 300));
+        const dados = await resp.json();
+        const texto = dados?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
+        if (!texto) throw new Error("Resposta vazia do modelo.");
+        estado.modeloRest = m;
+        return texto.trim();
+      } catch (e) {
+        ultimoErro = e;
+        // 503 = congestionamento temporário: espera 2s e tenta o mesmo modelo de novo
+        if (String(e.message).includes("503") && tentativa === 1) {
+          await new Promise(res => setTimeout(res, 2000));
+          continue;
+        }
+        break; // outros erros: passa para o próximo modelo
+      }
+    }
   }
   // Traduz os erros mais comuns da API em mensagens compreensíveis
   const msg = String(ultimoErro && ultimoErro.message || ultimoErro);
+  if (msg.includes("503")) {
+    throw new Error("Os servidores do Gemini estão congestionados neste momento (erro temporário do Google). Aguarde alguns minutos e envie novamente.");
+  }
   if (msg.includes("429")) {
     throw new Error("A cota gratuita do Gemini atingiu o limite (por minuto ou por dia). Aguarde cerca de 1 minuto e envie novamente — se persistir, tente mais tarde ou use outra forma de acesso.");
   }
