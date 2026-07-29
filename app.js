@@ -94,7 +94,8 @@ const estado = {
   respostasDemo: {},
   indiceDemo: 0,
   respostasUsuario: 0,
-  resultado: null
+  resultado: null,
+  processandoIA: false     // Trava de concorrência para evitar chamadas duplicadas (Erro 429)
 };
 
 /* ---------------------- Utilidades de interface ---------------------- */
@@ -197,12 +198,12 @@ async function entrarComGoogle() {
     $("#aviso-firebase").textContent = "Não foi possível entrar: " + msg;
   }
 }
+
 /* ---------------------- Chamadas ao Gemini ---------------------- */
 
 // Uma única porta de entrada: recebe o histórico e a instrução de sistema,
 // devolve o texto — independentemente do modo de acesso.
 async function gerarConteudo(contents, systemInstruction) {
-  // Usa a chave salva no estado ou no localStorage para bypassar o Vertex AI do Firebase
   const chaveEmUso = estado.chave || localStorage.getItem("matriz_chave_gemini");
  
   if (!chaveEmUso) {
@@ -222,7 +223,17 @@ async function gerarConteudo(contents, systemInstruction) {
             generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
           })
         });
-        if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + (await resp.text()).slice(0, 300));
+
+        if (!resp.ok) {
+          const errText = await resp.text();
+          // Se for 429 (Too Many Requests), aguarda 4s e tenta novamente na primeira tentativa
+          if (resp.status === 429 && tentativa === 1) {
+            await new Promise(res => setTimeout(res, 4000));
+            continue;
+          }
+          throw new Error("HTTP " + resp.status + ": " + errText.slice(0, 300));
+        }
+
         const dados = await resp.json();
         const texto = dados?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
         if (!texto) throw new Error("Resposta vazia do modelo.");
@@ -230,9 +241,9 @@ async function gerarConteudo(contents, systemInstruction) {
         return texto.trim();
       } catch (e) {
         ultimoErro = e;
-        // 503 = congestionamento temporário: espera 2s e tenta o mesmo modelo de novo
-        if (String(e.message).includes("503") && tentativa === 1) {
-          await new Promise(res => setTimeout(res, 2000));
+        // 503 ou 429 temporário: espera 3s e tenta de novo
+        if ((String(e.message).includes("503") || String(e.message).includes("429")) && tentativa === 1) {
+          await new Promise(res => setTimeout(res, 3000));
           continue;
         }
         break; // outros erros: passa para o próximo modelo
@@ -241,9 +252,13 @@ async function gerarConteudo(contents, systemInstruction) {
   }
   throw ultimoErro;
 }
+
 /* ---------------------- Fluxo: entrevista com IA (google ou chave) ---------------------- */
 
 async function iniciarEntrevistaIA() {
+  if (estado.processandoIA) return;
+  estado.processandoIA = true;
+
   irParaEtapa("coleta");
   mostrarDigitando(true);
   try {
@@ -255,7 +270,9 @@ async function iniciarEntrevistaIA() {
     adicionarBalao("ia", abertura);
   } catch (e) {
     mostrarDigitando(false);
-    adicionarBalao("ia", "Não consegui conectar ao serviço de IA. Verifique a conexão ou tente outra forma de acesso.\n\nDetalhe técnico: " + e.message);
+    adicionarBalao("ia", "Não consegui conectar ao serviço de IA. Verifique a conexão ou aguarde 1 minuto devido ao limite de requisições (429).\n\nDetalhe técnico: " + e.message);
+  } finally {
+    estado.processandoIA = false;
   }
 }
 
@@ -270,6 +287,12 @@ function iniciarModoChave() {
 }
 
 async function responderIA(textoUsuario) {
+  if (estado.processandoIA) return;
+  estado.processandoIA = true;
+
+  const campo = $("#campo-resposta");
+  if (campo) campo.disabled = true;
+
   adicionarBalao("usuario", textoUsuario);
   estado.respostasUsuario++;
   atualizarProgresso();
@@ -280,11 +303,20 @@ async function responderIA(textoUsuario) {
     adicionarBalao("ia", resposta);
   } catch (e) {
     mostrarDigitando(false);
-    adicionarBalao("ia", "Houve uma falha de conexão. Tente enviar novamente ou conclua a coleta com o que já temos. (" + e.message + ")");
+    adicionarBalao("ia", "Houve uma falha de conexão ou limite excedido (429). Aguarde um instante e tente enviar novamente. (" + e.message + ")");
+  } finally {
+    estado.processandoIA = false;
+    if (campo) {
+      campo.disabled = false;
+      campo.focus();
+    }
   }
 }
 
 async function processarIA() {
+  if (estado.processandoIA) return;
+  estado.processandoIA = true;
+
   overlay(true, "A IA está organizando suas respostas na matriz…");
   const contents = [
     ...transcricaoParaContents(),
@@ -309,238 +341,10 @@ async function processarIA() {
   } catch (e) {
     overlay(false);
     alert("Não foi possível processar com a IA: " + e.message + "\nVocê pode tentar novamente clicando em Concluir.");
+  } finally {
+    estado.processandoIA = false;
   }
 }
 
 function extrairJSON(texto) {
-  const limpo = texto.replace(/```json|```/g, "").trim();
-  const ini = limpo.indexOf("{"), fim = limpo.lastIndexOf("}");
-  if (ini === -1 || fim === -1) return null;
-  try { return JSON.parse(limpo.slice(ini, fim + 1)); } catch (_) { return null; }
-}
-
-/* ---------------------- Fluxo: modo demonstração ---------------------- */
-
-function iniciarModoDemo() {
-  estado.modo = "demo";
-  $("#coleta-modo-info").textContent = "Modo Demonstração · roteiro fixo de 12 perguntas, processado localmente no seu navegador.";
-  irParaEtapa("coleta");
-  adicionarBalao("ia", "Olá! Vou conduzir uma entrevista de 12 perguntas para montarmos a sua Matriz Etiológica da Personalidade. Responda com sinceridade e no seu ritmo — não há respostas certas ou erradas.");
-  fazerPerguntaDemo();
-}
-
-function fazerPerguntaDemo() {
-  if (estado.indiceDemo < ROTEIRO_DEMO.length) {
-    adicionarBalao("ia", ROTEIRO_DEMO[estado.indiceDemo][1]);
-  } else {
-    adicionarBalao("ia", "Coleta concluída! ✅ Clique em \"Concluir coleta e gerar matriz\" para ver sua análise.");
-  }
-  atualizarProgresso();
-}
-
-function responderDemo(textoUsuario) {
-  if (estado.indiceDemo >= ROTEIRO_DEMO.length) return;
-  adicionarBalao("usuario", textoUsuario);
-  estado.respostasDemo[ROTEIRO_DEMO[estado.indiceDemo][0]] = textoUsuario;
-  estado.indiceDemo++;
-  estado.respostasUsuario++;
-  setTimeout(fazerPerguntaDemo, 350);
-}
-
-function listar(texto) {
-  return String(texto || "")
-    .split(/\n|;|,| e (?=[a-záéíóúâêôãõç])/gi)
-    .map(s => s.trim())
-    .filter(s => s.length > 2)
-    .slice(0, 6);
-}
-
-function processarDemo() {
-  overlay(true, "Organizando suas respostas na matriz…");
-  const r = estado.respostasDemo;
-  const naoInformado = "Não informado nesta demonstração.";
-
-  const impactos = {
-    biologica:  "Base do temperamento: influencia energia, reatividade emocional e disposição natural.",
-    psicologica:"Molda padrões emocionais, autoestima e a forma de se vincular às pessoas.",
-    cognitiva:  "Define flexibilidade mental, criatividade e o estilo de resolver problemas.",
-    social:     "Constrói identidade social, valores morais e papéis assumidos nos grupos.",
-    historica:  "Gera adaptações, visão de mundo e atitudes diante de novos desafios.",
-    espiritual: "Sustenta propósito, resiliência existencial e coerência entre valores e ações."
-  };
-  const dims = {};
-  for (const d of DIMENSOES) dims[d.id] = { fatores: r[d.id] || naoInformado, impacto: impactos[d.id] };
-
-  const objetivo = (r.objetivo || "desenvolver os pontos identificados").trim();
-  const duvidas = listar(r.duvidas);
-  const negativas = listar(r.negativas);
-
-  const acoes = [
-    { acao: "Registrar semanalmente situações em que o objetivo \"" + objetivo + "\" foi exercitado, anotando o que funcionou.",
-      prazo: "30 dias", indicador: "Mínimo de 4 registros no mês" },
-    { acao: "Pedir feedback a duas pessoas de confiança sobre " + (duvidas[0] ? "a dúvida \"" + duvidas[0] + "\"" : "os traços em que você tem dúvida") + ", comparando com a sua autopercepção.",
-      prazo: "45 dias", indicador: "2 conversas de feedback realizadas" },
-    { acao: "Definir uma estratégia concreta para reduzir o impacto de " + (negativas[0] ? "\"" + negativas[0] + "\"" : "uma influência negativa identificada") + " (limite, apoio ou nova rotina).",
-      prazo: "60 dias", indicador: "Estratégia escrita e em prática" },
-    { acao: "Revisar esta matriz e atualizar Certezas, Suposições e Dúvidas com o que foi aprendido.",
-      prazo: "90 dias", indicador: "Matriz revisada com pelo menos 3 atualizações" }
-  ];
-
-  estado.resultado = {
-    dimensoes: dims,
-    certezas: listar(r.certezas).length ? listar(r.certezas) : [naoInformado],
-    suposicoes: listar(r.suposicoes).length ? listar(r.suposicoes) : [naoInformado],
-    duvidas: duvidas.length ? duvidas : [naoInformado],
-    influencias_positivas: listar(r.positivas).length ? listar(r.positivas) : [naoInformado],
-    influencias_negativas: negativas.length ? negativas : [naoInformado],
-    plano: {
-      premissa: "Sua personalidade resulta da interação entre predisposições de base, experiências emocionais e o contexto social e histórico em que você se formou. O ponto de partida do seu desenvolvimento é o objetivo declarado — " + objetivo + " — apoiado nas suas influências positivas e nas certezas que você já reconhece em si. As dúvidas e influências negativas mapeadas indicam onde concentrar atenção. (Análise demonstrativa gerada localmente; o acesso com login ou chave produz uma síntese personalizada por IA.)",
-      pontos_fortes: listar(r.certezas).concat(listar(r.positivas)).slice(0, 5),
-      pontos_a_desenvolver: duvidas.concat(negativas).slice(0, 5),
-      acoes
-    }
-  };
-  setTimeout(() => {
-    overlay(false);
-    renderizarMatriz();
-    renderizarPlano();
-    irParaEtapa("matriz");
-  }, 600);
-}
-
-/* ---------------------- Renderização ---------------------- */
-
-function escapar(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-function celulaHTML(classe, rotulo, titulo, corpoHTML) {
-  return `<article class="celula ${classe}">
-    <span class="rotulo">${rotulo}</span>
-    <h4>${titulo}</h4>
-    ${corpoHTML}
-  </article>`;
-}
-
-function listaHTML(itens) {
-  return "<ul>" + (itens || []).map(i => `<li>${escapar(i)}</li>`).join("") + "</ul>";
-}
-
-function renderizarMatriz() {
-  const r = estado.resultado;
-  let html = '<div class="matriz-grade">';
-  for (const d of DIMENSOES) {
-    const c = r.dimensoes?.[d.id] || {};
-    html += celulaHTML("", "Dimensão", d.nome,
-      `<p><strong>Fatores causais:</strong> ${escapar(c.fatores)}</p>
-       <p><strong>Impacto na personalidade:</strong> ${escapar(c.impacto)}</p>`);
-  }
-  html += "</div>";
-
-  html += '<h3 class="grupo-titulo">Autopercepção — Canvas C · S · D</h3><div class="matriz-grade">';
-  html += celulaHTML("celula-verde", "C", "Certezas", listaHTML(r.certezas));
-  html += celulaHTML("celula-ambar", "S", "Suposições", listaHTML(r.suposicoes));
-  html += celulaHTML("celula-rosa", "D", "Dúvidas", listaHTML(r.duvidas));
-  html += "</div>";
-
-  html += '<h3 class="grupo-titulo">Influências</h3><div class="matriz-grade">';
-  html += celulaHTML("celula-verde", "+", "Influências positivas", listaHTML(r.influencias_positivas));
-  html += celulaHTML("celula-rosa", "−", "Influências negativas", listaHTML(r.influencias_negativas));
-  html += "</div>";
-
-  $("#matriz-conteudo").innerHTML = html;
-}
-
-function renderizarPlano() {
-  const p = estado.resultado.plano || {};
-  $("#plano-conteudo").innerHTML = `<div class="plano-premissa">
-    <h3>Premissa de desenvolvimento</h3>
-    <p>${escapar(p.premissa)}</p>
-  </div>
-  <div class="plano-colunas">
-    ${celulaHTML("celula-verde", "Potencializar", "Pontos fortes", listaHTML(p.pontos_fortes))}
-    ${celulaHTML("celula-rosa", "Atenção", "Pontos a desenvolver", listaHTML(p.pontos_a_desenvolver))}
-  </div>
-  <table class="tabela-acoes">
-    <thead><tr><th>Ação</th><th>Prazo</th><th>Indicador de progresso</th></tr></thead>
-    <tbody>
-      ${(p.acoes || []).map(a => `<tr>
-        <td>${escapar(a.acao)}</td><td>${escapar(a.prazo)}</td><td>${escapar(a.indicador)}</td>
-      </tr>`).join("")}
-    </tbody>
-  </table>`;
-}
-
-/* ---------------------- Exportação ---------------------- */
-
-function baixarJSON() {
-  const blob = new Blob([JSON.stringify({
-    gerado_em: new Date().toISOString(),
-    modo: estado.modo,
-    matriz: estado.resultado
-  }, null, 2)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "matriz-etiologica.json";
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-/* ---------------------- Inicialização ---------------------- */
-
-document.addEventListener("DOMContentLoaded", () => {
-  // Garante que o overlay comece fechado, mesmo se o CSS falhar em carregar
-  overlay(false);
-
-  $("#dim-resumo").innerHTML = DIMENSOES.map(d =>
-    `<div class="dim-item"><strong>${d.nome}</strong><em>${d.desc}</em></div>`).join("");
-
-  try {
-    const salva = localStorage.getItem("matriz_chave_gemini");
-    if (salva) $("#chave-api").value = salva;
-  } catch (_) {}
-
-  // Landing → tela de acesso
-  document.querySelectorAll("[data-iniciar]").forEach(b =>
-    b.addEventListener("click", () => irParaEtapa("acesso")));
-  $("#btn-voltar-inicio").addEventListener("click", () => irParaEtapa("inicio"));
-
-  // Formas de acesso
-  $("#btn-login-google").addEventListener("click", entrarComGoogle);
-  $("#btn-modo-chave").addEventListener("click", iniciarModoChave);
-  $("#btn-modo-demo").addEventListener("click", iniciarModoDemo);
-  if (!firebaseConfigurado()) {
-    $("#aviso-firebase").textContent = "Disponível quando o administrador do site configurar o Firebase.";
-  }
-
-  // Chat
-  $("#form-chat").addEventListener("submit", (ev) => {
-    ev.preventDefault();
-    const campo = $("#campo-resposta");
-    const texto = campo.value.trim();
-    if (!texto) return;
-    campo.value = "";
-    if (estado.modo === "demo") responderDemo(texto);
-    else responderIA(texto);
-  });
-  $("#campo-resposta").addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter" && !ev.shiftKey) {
-      ev.preventDefault();
-      $("#form-chat").requestSubmit();
-    }
-  });
-
-  $("#btn-concluir").addEventListener("click", () => {
-    if (estado.modo === "demo") processarDemo();
-    else processarIA();
-  });
-
-  $("#btn-ver-plano").addEventListener("click", () => irParaEtapa("plano"));
-  $("#btn-imprimir").addEventListener("click", () => window.print());
-  $("#btn-baixar-json").addEventListener("click", baixarJSON);
-  $("#btn-recomecar").addEventListener("click", () => location.reload());
-
-  document.querySelectorAll(".passo").forEach(p =>
-    p.addEventListener("click", () => { if (!p.disabled) irParaEtapa(p.dataset.etapa); }));
-});
+  const limpo = texto.replace(/```json|
