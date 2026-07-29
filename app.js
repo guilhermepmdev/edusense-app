@@ -202,23 +202,18 @@ async function entrarComGoogle() {
 // Uma única porta de entrada: recebe o histórico e a instrução de sistema,
 // devolve o texto — independentemente do modo de acesso.
 async function gerarConteudo(contents, systemInstruction) {
-  if (estado.modo === "google") {
-    const modelo = estado.firebase.getGenerativeModel(estado.firebase.ai, {
-      model: MODELO_IA,
-      systemInstruction: { parts: [{ text: systemInstruction }] },
-      generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-    });
-    const resposta = await modelo.generateContent({ contents });
-    const texto = resposta.response.text();
-    if (!texto) throw new Error("Resposta vazia do modelo.");
-    return texto.trim();
+  // Usa a chave salva no estado ou no localStorage para bypassar o Vertex AI do Firebase
+  const chaveEmUso = estado.chave || localStorage.getItem("matriz_chave_gemini");
+  
+  if (!chaveEmUso) {
+    throw new Error("Chave da API Gemini não encontrada. Configure uma chave do Google AI Studio.");
   }
-  // modo "chave": REST direto, com fallback de modelo e nova tentativa em congestionamento
+
   let ultimoErro = null;
   for (const m of [estado.modeloRest, ...MODELOS_REST.filter(x => x !== estado.modeloRest)]) {
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
       try {
-        const resp = await fetch(API_BASE + m + ":generateContent?key=" + encodeURIComponent(estado.chave), {
+        const resp = await fetch(API_BASE + m + ":generateContent?key=" + encodeURIComponent(chaveEmUso), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -244,27 +239,8 @@ async function gerarConteudo(contents, systemInstruction) {
       }
     }
   }
-  // Traduz os erros mais comuns da API em mensagens compreensíveis
-  const msg = String(ultimoErro && ultimoErro.message || ultimoErro);
-  if (msg.includes("503")) {
-    throw new Error("Os servidores do Gemini estão congestionados neste momento (erro temporário do Google). Aguarde alguns minutos e envie novamente.");
-  }
-  if (msg.includes("429")) {
-    throw new Error("A cota gratuita do Gemini atingiu o limite (por minuto ou por dia). Aguarde cerca de 1 minuto e envie novamente — se persistir, tente mais tarde ou use outra forma de acesso.");
-  }
-  if (msg.includes("403") || msg.includes("API_KEY_INVALID") || msg.includes("400")) {
-    throw new Error("A chave informada não foi aceita pela API do Gemini. Confira se copiou a chave completa em aistudio.google.com/apikey.");
-  }
   throw ultimoErro;
 }
-
-function transcricaoParaContents() {
-  return estado.transcricao.map(t => ({
-    role: t.papel === "usuario" ? "user" : "model",
-    parts: [{ text: t.texto }]
-  }));
-}
-
 /* ---------------------- Fluxo: entrevista com IA (google ou chave) ---------------------- */
 
 async function iniciarEntrevistaIA() {
