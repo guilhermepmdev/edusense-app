@@ -14,10 +14,10 @@
 /* ---------------------- Configuração ---------------------- */
 
 const VERSAO_FIREBASE = "12.16.0"; // versão do SDK carregada via CDN do Google
-const MODELO_IA = "gemini-1.5-flash";
+const MODELO_IA = "gemini-2.0-flash";
 
 // Fallback no modo chave: modelos oficiais válidos
-const MODELOS_REST = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"];
+const MODELOS_REST = ["gemini-2.0-flash", "gemini-2.0-flash", "gemini-2.0-pro"];
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
 const MIN_RESPOSTAS_IA = 6;
 
