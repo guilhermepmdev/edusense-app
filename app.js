@@ -13,7 +13,7 @@
 
 /* ---------------------- Configuração ---------------------- */
 
-const VERSAO_FIREBASE = "11.0.0"; // Versão válida do CDN do Firebase
+const VERSAO_FIREBASE = "11.4.0"; // Versão v11 estável do CDN do Firebase
 const MODELO_IA = "gemini-2.0-flash";
 
 // Fallback no modo chave: sem duplicações
