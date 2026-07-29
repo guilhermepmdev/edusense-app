@@ -172,18 +172,18 @@ async function entrarComGoogle() {
   overlay(true, "Abrindo login do Google…");
   try {
     const base = "https://www.gstatic.com/firebasejs/" + VERSAO_FIREBASE + "/";
-    const [{ initializeApp }, auth, ia] = await Promise.all([
+    const [{ initializeApp }, auth, vertexai] = await Promise.all([
       import(base + "firebase-app.js"),
       import(base + "firebase-auth.js"),
-      import(base + "firebase-ai.js")
+      import(base + "firebase-vertexai.js")
     ]);
     const app = initializeApp(FIREBASE_CONFIG);
     const resultado = await auth.signInWithPopup(auth.getAuth(app), new auth.GoogleAuthProvider());
     estado.usuario = { nome: resultado.user.displayName, email: resultado.user.email };
     estado.firebase = {
       app,
-      ai: ia.getAI(app, { backend: new ia.GoogleAIBackend() }),
-      getGenerativeModel: ia.getGenerativeModel
+      ai: vertexai.getVertexAI(app),
+      getGenerativeModel: vertexai.getGenerativeModel
     };
     estado.modo = "google";
     overlay(false);
@@ -193,11 +193,10 @@ async function entrarComGoogle() {
   } catch (e) {
     overlay(false);
     const msg = String(e && e.message || e);
-    if (msg.includes("popup-closed")) return; // usuário fechou o login
+    if (msg.includes("popup-closed")) return;
     $("#aviso-firebase").textContent = "Não foi possível entrar: " + msg;
   }
 }
-
 /* ---------------------- Chamadas ao Gemini ---------------------- */
 
 // Uma única porta de entrada: recebe o histórico e a instrução de sistema,
