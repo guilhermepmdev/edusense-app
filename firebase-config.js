@@ -13,8 +13,8 @@
     projectId: "edusense-7b027",
     storageBucket: "edusense-7b027.firebasestorage.app",
     messagingSenderId: "799185145852",
-    appId: "1:799185145852:web:9cee5430314fd61416ec79",
-    measurementId: "G-1SJHDQR8BQ"
+    appId: "1:799185145852:web:c3d2e8b58f24f07c16ec79",
+    measurementId: "G-5EMY7C387G"
   };
 
   // Initialize Firebase
