@@ -347,4 +347,14 @@ async function processarIA() {
 }
 
 function extrairJSON(texto) {
-  const limpo = texto.replace(/```json|
+  function extrairJSON(texto) {
+  
+  const limpo = texto.replace(/```json|```/g, "").trim();
+  
+  
+  try {
+    return JSON.parse(limpo);
+  } catch (e) {
+    return null; 
+  }
+}
