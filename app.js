@@ -347,10 +347,7 @@ async function processarIA() {
 }
 
 function extrairJSON(texto) {
-  function extrairJSON(texto) {
-  
   const limpo = texto.replace(/```json|```/g, "").trim();
-  
   
   try {
     return JSON.parse(limpo);
