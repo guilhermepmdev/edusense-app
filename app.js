@@ -202,9 +202,27 @@ async function entrarComGoogle() {
 // Uma única porta de entrada: recebe o histórico e a instrução de sistema,
 // devolve o texto — independentemente do modo de acesso.
 async function gerarConteudo(contents, systemInstruction) {
-  // Usa a chave salva no estado ou no localStorage para bypassar o Vertex AI do Firebase
+  // 1. Se estiver logado via Google, usa o SDK do Firebase Vertex AI
+  if (estado.modo === "google" && estado.firebase) {
+    try {
+      const { ai, getGenerativeModel } = estado.firebase;
+      const model = getGenerativeModel(ai, {
+        model: MODELO_IA,
+        systemInstruction: systemInstruction
+      });
+
+      const resp = await model.generateContent({ contents });
+      const texto = resp.response.text();
+      if (!texto) throw new Error("Resposta vazia da IA.");
+      return texto.trim();
+    } catch (e) {
+      throw new Error("Erro no Firebase AI: " + e.message);
+    }
+  }
+
+  // 2. Se estiver usando Chave Própria
   const chaveEmUso = estado.chave || localStorage.getItem("matriz_chave_gemini");
- 
+  
   if (!chaveEmUso) {
     throw new Error("Chave da API Gemini não encontrada. Configure uma chave do Google AI Studio.");
   }
@@ -222,7 +240,16 @@ async function gerarConteudo(contents, systemInstruction) {
             generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
           })
         });
-        if (!resp.ok) throw new Error("HTTP " + resp.status + ": " + (await resp.text()).slice(0, 300));
+
+        if (!resp.ok) {
+          const errText = await resp.text();
+          if (resp.status === 429 && tentativa === 1) {
+            await new Promise(res => setTimeout(res, 4000));
+            continue;
+          }
+          throw new Error("HTTP " + resp.status + ": " + errText.slice(0, 300));
+        }
+
         const dados = await resp.json();
         const texto = dados?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
         if (!texto) throw new Error("Resposta vazia do modelo.");
@@ -230,12 +257,11 @@ async function gerarConteudo(contents, systemInstruction) {
         return texto.trim();
       } catch (e) {
         ultimoErro = e;
-        // 503 = congestionamento temporário: espera 2s e tenta o mesmo modelo de novo
-        if (String(e.message).includes("503") && tentativa === 1) {
-          await new Promise(res => setTimeout(res, 2000));
+        if ((String(e.message).includes("503") || String(e.message).includes("429")) && tentativa === 1) {
+          await new Promise(res => setTimeout(res, 3000));
           continue;
         }
-        break; // outros erros: passa para o próximo modelo
+        break;
       }
     }
   }
