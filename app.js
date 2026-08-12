@@ -3,7 +3,7 @@
    Três formas de acesso:
      1) "google": login com conta Google (Firebase Auth) e chamadas ao Gemini
      2) "chave": o usuário informa a própria chave da API DeepSeek
-     3) "demo": roteiro fixo de perguntas + processamento local
+     3) "demo": roteiro fixo de perguntas + processamento local.
    ========================================================================== */
 
 "use strict";
@@ -11,7 +11,7 @@
 /* ---------------------- Configuração ---------------------- */
 
 const VERSAO_FIREBASE = "11.4.0";
-const MODELO_IA = "gemini-2.0-flash";
+const MODELO_GEMINI = "gemini-2.0-flash";
 const MODELO_DEEPSEEK = "deepseek-chat";
 const API_DEEPSEEK = "https://api.deepseek.com/v1/chat/completions";
 const MIN_RESPOSTAS_IA = 6;
@@ -155,7 +155,7 @@ function firebaseConfigurado() {
          FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId && FIREBASE_CONFIG.appId;
 }
 
-/* ---------------------- Login Google ---------------------- */
+/* ---------------------- Login Google (mantido para Gemini) ---------------------- */
 
 async function entrarComGoogle() {
   if (!firebaseConfigurado()) {
@@ -202,7 +202,7 @@ async function gerarConteudo(contents, systemInstruction) {
     try {
       const { ai, getGenerativeModel } = estado.firebase;
       const model = getGenerativeModel(ai, {
-        model: MODELO_IA,
+        model: MODELO_GEMINI,
         systemInstruction: systemInstruction
       });
       const resp = await model.generateContent({ contents });
@@ -265,7 +265,6 @@ async function gerarConteudo(contents, systemInstruction) {
           continue;
         }
         
-        // Verifica se é erro de chave inválida
         if (resp.status === 401) {
           throw new Error("❌ Chave API inválida. Verifique se você copiou a chave correta do site da DeepSeek.");
         }
