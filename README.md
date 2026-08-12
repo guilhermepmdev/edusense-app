@@ -1,13 +1,29 @@
 Matriz Etiológica da Personalidade
 
-> **Nota de manutenção:** o app foi atualizado para usar o SDK atual do
-> Firebase AI Logic (`firebase-ai.js`, com `getAI` + `GoogleAIBackend`) no
-> lugar do antigo `firebase-vertexai.js`, que foi descontinuado e causava o
-> erro "Cannot read properties of undefined (reading 'some')". O modelo
-> também foi atualizado de `gemini-2.0-flash` (desligado pela Google em
-> 1º/06/2026) para `gemini-2.5-flash`. O modo "chave própria" agora chama a
-> API do Gemini diretamente (antes chamava, por engano, a API da DeepSeek,
-> incompatível com o texto da interface).
+> **Nota de manutenção (2ª rodada):**
+> - O modo "chave própria" agora usa o alias `gemini-flash-latest` em vez de
+>   uma versão fixa do modelo. A Google tem aposentado versões específicas do
+>   Gemini (como `gemini-2.0-flash` e depois `gemini-2.5-flash`) com poucos
+>   meses de vida; o alias evita que o site quebre de novo quando isso
+>   acontecer de novo.
+> - **Se o login com Google der o erro "This AI Logic Project is inactive.
+>   Please complete onboarding and enable App Check"**, isso não é um bug do
+>   código — é um passo de configuração que falta no seu projeto Firebase.
+>   Resolva assim:
+>   1. Acesse https://console.firebase.google.com e abra o projeto `edusense-7b027`.
+>   2. No menu lateral, clique em **Firebase AI Logic**.
+>   3. Clique em **Get started** e conclua o onboarding, escolhendo o provedor
+>      **Gemini Developer API** (plano Spark, gratuito, sem cartão).
+>   4. Isso ativa o projeto para receber chamadas de IA. O App Check é
+>      opcional (proteção extra contra abuso), mas o "Get started" já resolve
+>      o erro "This AI Logic Project is inactive".
+>
+> **Nota de manutenção (1ª rodada):** o app foi atualizado para usar o SDK
+> atual do Firebase AI Logic (`firebase-ai.js`, com `getAI` + `GoogleAIBackend`)
+> no lugar do antigo `firebase-vertexai.js`, que foi descontinuado e causava o
+> erro "Cannot read properties of undefined (reading 'some')". O modo "chave
+> própria" também passou a chamar a API do Gemini diretamente (antes chamava,
+> por engano, a API da DeepSeek, incompatível com o texto da interface).
 >
 > Se o login com Google continuar falhando com um erro citando
 > `unauthorized-domain`, o domínio do seu GitHub Pages não está autorizado —
