@@ -14,7 +14,12 @@
 /* ---------------------- Configuração ---------------------- */
 
 const VERSAO_FIREBASE = "12.17.1";
-const MODELO_GEMINI = "gemini-2.5-flash";
+// Usamos o alias "gemini-flash-latest" (em vez de uma versão fixa como
+// "gemini-2.5-flash") porque a Google tem aposentado versões específicas do
+// Gemini com poucos meses de vida — o alias é redirecionado automaticamente
+// pela Google para o Flash estável mais recente, evitando que o site quebre
+// de novo quando isso acontecer.
+const MODELO_GEMINI = "gemini-flash-latest";
 const API_GEMINI_GENERATE =
   "https://generativelanguage.googleapis.com/v1beta/models/" + MODELO_GEMINI + ":generateContent";
 const CHAVE_LOCALSTORAGE = "matriz_chave_gemini";
