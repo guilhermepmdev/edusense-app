@@ -2,7 +2,10 @@
    Matriz Etiológica da Personalidade — lógica da aplicação
    Três formas de acesso:
      1) "google": login com conta Google (Firebase Auth) e chamadas ao Gemini
-     2) "chave": o usuário informa a própria chave da API DeepSeek
+        via Firebase AI Logic (SDK "firebase/ai", backend Gemini Developer API)
+     2) "chave": o usuário informa a própria chave da API Gemini e o app
+        chama a Generative Language API (generativelanguage.googleapis.com)
+        diretamente do navegador.
      3) "demo": roteiro fixo de perguntas + processamento local.
    ========================================================================== */
 
@@ -10,10 +13,11 @@
 
 /* ---------------------- Configuração ---------------------- */
 
-const VERSAO_FIREBASE = "11.4.0";
-const MODELO_GEMINI = "gemini-2.0-flash";
-const MODELO_DEEPSEEK = "deepseek-chat";
-const API_DEEPSEEK = "https://api.deepseek.com/v1/chat/completions";
+const VERSAO_FIREBASE = "12.17.1";
+const MODELO_GEMINI = "gemini-2.5-flash";
+const API_GEMINI_GENERATE =
+  "https://generativelanguage.googleapis.com/v1beta/models/" + MODELO_GEMINI + ":generateContent";
+const CHAVE_LOCALSTORAGE = "matriz_chave_gemini";
 const MIN_RESPOSTAS_IA = 6;
 
 const DIMENSOES = [
@@ -166,18 +170,20 @@ async function entrarComGoogle() {
   overlay(true, "Abrindo login do Google…");
   try {
     const base = "https://www.gstatic.com/firebasejs/" + VERSAO_FIREBASE + "/";
-    const [{ initializeApp }, auth, vertexai] = await Promise.all([
+    // "firebase-vertexai.js" foi descontinuado pelo Firebase; o SDK atual de
+    // IA generativa vive em "firebase-ai.js" (getAI + GoogleAIBackend).
+    const [{ initializeApp }, auth, aiSdk] = await Promise.all([
       import(base + "firebase-app.js"),
       import(base + "firebase-auth.js"),
-      import(base + "firebase-vertexai.js")
+      import(base + "firebase-ai.js")
     ]);
     const app = initializeApp(FIREBASE_CONFIG);
     const resultado = await auth.signInWithPopup(auth.getAuth(app), new auth.GoogleAuthProvider());
     estado.usuario = { nome: resultado.user.displayName, email: resultado.user.email };
     estado.firebase = {
       app,
-      ai: vertexai.getVertexAI(app),
-      getGenerativeModel: vertexai.getGenerativeModel
+      ai: aiSdk.getAI(app, { backend: new aiSdk.GoogleAIBackend() }),
+      getGenerativeModel: aiSdk.getGenerativeModel
     };
     estado.modo = "google";
     overlay(false);
@@ -188,16 +194,23 @@ async function entrarComGoogle() {
     overlay(false);
     const msg = String(e && e.message || e);
     if (msg.includes("popup-closed")) return;
+    if (msg.includes("unauthorized-domain")) {
+      $("#aviso-firebase").textContent =
+        "Este domínio não está autorizado no Firebase Authentication. Adicione-o em " +
+        "Authentication → Settings → Authorized domains no console do Firebase.";
+      return;
+    }
     $("#aviso-firebase").textContent = "Não foi possível entrar: " + msg;
   }
 }
 
 /* ================================================================
-   FUNÇÃO PRINCIPAL - CHAMADA À API DEEPSEEK
+   FUNÇÃO PRINCIPAL - GERAÇÃO DE CONTEÚDO COM GEMINI
+   (via Firebase AI Logic no login Google, ou via chave própria)
    ================================================================ */
 
 async function gerarConteudo(contents, systemInstruction) {
-  // Caso 1: Login com Google → usa Gemini via Firebase
+  // Caso 1: Login com Google → usa Gemini via Firebase AI Logic
   if (estado.modo === "google" && estado.firebase) {
     try {
       const { ai, getGenerativeModel } = estado.firebase;
@@ -214,84 +227,82 @@ async function gerarConteudo(contents, systemInstruction) {
     }
   }
 
-  // Caso 2: Chave Própria → usa DeepSeek
-  const chaveEmUso = estado.chave || localStorage.getItem("matriz_chave_deepseek");
-  
+  // Caso 2: Chave própria → chama a API do Gemini diretamente
+  const chaveEmUso = estado.chave || (() => {
+    try { return localStorage.getItem(CHAVE_LOCALSTORAGE); } catch (_) { return null; }
+  })();
+
   if (!chaveEmUso) {
-    throw new Error("❌ Chave da API DeepSeek não encontrada. Configure uma chave em https://platform.deepseek.com");
+    throw new Error("❌ Chave da API Gemini não encontrada. Obtenha uma gratuitamente em https://aistudio.google.com/apikey");
   }
 
-  // Converte do formato Gemini para DeepSeek
-  const mensagens = contents.map(item => ({
-    role: item.role === "model" ? "assistant" : "user",
-    content: item.parts.map(p => p.text).join(" ")
-  }));
+  return chamarGeminiComChave(contents, systemInstruction, chaveEmUso);
+}
 
+async function chamarGeminiComChave(contents, systemInstruction, chave) {
+  const corpo = { contents };
   if (systemInstruction) {
-    mensagens.unshift({
-      role: "system",
-      content: systemInstruction
-    });
+    corpo.systemInstruction = { parts: [{ text: systemInstruction }] };
   }
 
   let ultimoErro = null;
-  
+
   for (let tentativa = 1; tentativa <= 3; tentativa++) {
     try {
-      console.log("🟢 Tentativa " + tentativa + " - Enviando para DeepSeek...");
-      
-      const resp = await fetch(API_DEEPSEEK, {
+      console.log("🟢 Tentativa " + tentativa + " - Enviando para o Gemini...");
+
+      const resp = await fetch(API_GEMINI_GENERATE, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer " + chaveEmUso.trim()
+          "x-goog-api-key": chave.trim()
         },
-        body: JSON.stringify({
-          model: MODELO_DEEPSEEK,
-          messages: mensagens,
-          temperature: 0.7,
-          max_tokens: 2048
-        })
+        body: JSON.stringify(corpo)
       });
 
       console.log("🟡 Status:", resp.status);
 
       if (!resp.ok) {
-        const errText = await resp.text();
-        console.log("🔴 Erro:", errText);
-        
+        let mensagem = "HTTP " + resp.status;
+        try {
+          const errJson = await resp.json();
+          if (errJson?.error?.message) mensagem = errJson.error.message;
+        } catch (_) {}
+        console.log("🔴 Erro:", mensagem);
+
         if (resp.status === 429 && tentativa < 3) {
           await new Promise(res => setTimeout(res, 3000 * tentativa));
           continue;
         }
-        
-        if (resp.status === 401) {
-          throw new Error("❌ Chave API inválida. Verifique se você copiou a chave correta do site da DeepSeek.");
+        if (resp.status === 400 || resp.status === 403) {
+          throw new Error("❌ Chave da API Gemini inválida ou sem permissão: " + mensagem);
         }
-        
-        throw new Error("HTTP " + resp.status + ": " + errText.slice(0, 300));
+        throw new Error("HTTP " + resp.status + ": " + mensagem);
       }
 
       const dados = await resp.json();
       console.log("🟢 Resposta recebida!");
-      
-      const texto = dados?.choices?.[0]?.message?.content || "";
-      if (!texto) throw new Error("Resposta vazia do modelo.");
-      
-      return texto.trim();
-      
+
+      const partes = dados?.candidates?.[0]?.content?.parts || [];
+      const texto = partes.map(p => p.text || "").join("").trim();
+      if (!texto) {
+        const motivo = dados?.candidates?.[0]?.finishReason;
+        throw new Error("Resposta vazia do modelo" + (motivo ? " (motivo: " + motivo + ")" : "") + ".");
+      }
+      return texto;
+
     } catch (e) {
       console.log("🔴 Erro na tentativa", tentativa, ":", e.message);
       ultimoErro = e;
-      if (tentativa < 3) {
+      if (tentativa < 3 && !String(e.message).startsWith("❌")) {
         await new Promise(res => setTimeout(res, 2000 * tentativa));
         continue;
       }
       break;
     }
   }
-  
-  throw ultimoErro || new Error("Falha ao comunicar com a API DeepSeek");
+
+  throw ultimoErro || new Error("Falha ao comunicar com a API Gemini.");
 }
 
 /* ---------------------- Funções auxiliares ---------------------- */
@@ -324,15 +335,15 @@ async function iniciarEntrevistaIA() {
 function iniciarModoChave() {
   const chave = $("#chave-api").value.trim();
   if (!chave) { 
-    alert("Cole sua chave da API DeepSeek ou escolha outra forma de acesso."); 
+    alert("Cole sua chave da API Gemini ou escolha outra forma de acesso."); 
     return; 
   }
   estado.modo = "chave";
   estado.chave = chave;
   try { 
-    localStorage.setItem("matriz_chave_deepseek", chave);
+    localStorage.setItem(CHAVE_LOCALSTORAGE, chave);
   } catch (_) {}
-  $("#coleta-modo-info").textContent = "✅ Acesso com chave própria · entrevista conduzida por IA (DeepSeek).";
+  $("#coleta-modo-info").textContent = "✅ Acesso com chave própria · entrevista conduzida por IA (Gemini).";
   iniciarEntrevistaIA();
 }
 
@@ -564,7 +575,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `<div class="dim-item"><strong>${d.nome}</strong><em>${d.desc}</em></div>`).join("");
 
   try {
-    const salva = localStorage.getItem("matriz_chave_deepseek");
+    const salva = localStorage.getItem(CHAVE_LOCALSTORAGE);
     if (salva) $("#chave-api").value = salva;
   } catch (_) {}
 
