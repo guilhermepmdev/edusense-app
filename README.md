@@ -1,4 +1,17 @@
 Matriz Etiológica da Personalidade
+
+> **Nota de manutenção:** o app foi atualizado para usar o SDK atual do
+> Firebase AI Logic (`firebase-ai.js`, com `getAI` + `GoogleAIBackend`) no
+> lugar do antigo `firebase-vertexai.js`, que foi descontinuado e causava o
+> erro "Cannot read properties of undefined (reading 'some')". O modelo
+> também foi atualizado de `gemini-2.0-flash` (desligado pela Google em
+> 1º/06/2026) para `gemini-2.5-flash`. O modo "chave própria" agora chama a
+> API do Gemini diretamente (antes chamava, por engano, a API da DeepSeek,
+> incompatível com o texto da interface).
+>
+> Se o login com Google continuar falhando com um erro citando
+> `unauthorized-domain`, o domínio do seu GitHub Pages não está autorizado —
+> veja o passo "Authorized domains" abaixo.
 Ferramenta web de autoconhecimento que conduz uma entrevista guiada por IA,
 organiza as respostas em uma matriz etiológica de seis dimensões (Biológica,
 Psicológica, Cognitiva, Social/Cultural, Histórico/Contextual e
