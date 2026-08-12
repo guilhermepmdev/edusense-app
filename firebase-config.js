@@ -7,3 +7,4 @@ const FIREBASE_CONFIG = {
   appId: "1:799185145852:web:0c1c98acbacb29d916ec79",
   measurementId: "G-RLGWGC2WML"
 };
+
