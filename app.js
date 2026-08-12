@@ -228,7 +228,18 @@ async function gerarConteudo(contents, systemInstruction) {
       if (!texto) throw new Error("Resposta vazia da IA.");
       return texto.trim();
     } catch (e) {
-      throw new Error("Erro no Firebase AI: " + e.message);
+      const msg = String(e && e.message || e);
+      if (msg.includes("AI Logic Project is inactive")) {
+        throw new Error(
+          "O provedor Gemini ainda não está totalmente ativado neste projeto Firebase. " +
+          "Isso costuma acontecer quando o 'Get started' do Firebase AI Logic não completou a " +
+          "ativação da API por trás dos panos. No Google Cloud Console, abra 'APIs e serviços' → " +
+          "procure 'Generative Language API' → confirme que está Ativada para o projeto " +
+          "(console.cloud.google.com/apis/library/generativelanguage.googleapis.com). " +
+          "Enquanto isso, use o modo 'Usar minha chave Gemini', que não depende dessa configuração."
+        );
+      }
+      throw new Error("Erro no Firebase AI: " + msg);
     }
   }
 
