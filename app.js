@@ -3,8 +3,8 @@
    Três formas de acesso:
      1) "google": login com conta Google (Firebase Auth) e chamadas ao Gemini
         via Firebase AI Logic — sem chave no código; requer firebase-config.js.
-     2) "chave": o usuário informa a própria chave da API Gemini; chamadas
-        vão do navegador direto para a API do Google.
+     2) "chave": o usuário informa a própria chave da API DeepSeek; chamadas
+        vão do navegador direto para a API da DeepSeek.
      3) "demo": roteiro fixo de perguntas + processamento local.
    Nenhum dado passa por servidores dos autores do site.
    ========================================================================== */
@@ -14,11 +14,11 @@
 /* ---------------------- Configuração ---------------------- */
 
 const VERSAO_FIREBASE = "11.4.0"; // Versão v11 estável do CDN do Firebase
-const MODELO_IA = "gemini-2.0-flash";
+const MODELO_IA = "gemini-2.0-flash"; // Para login com Google
+const MODELO_DEEPSEEK = "deepseek-chat"; // Para chave própria
 
 // Fallback no modo chave: sem duplicações
-const MODELOS_REST = ["gemini-2.0-flash"];
-const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/";
+const API_BASE_DEEPSEEK = "https://api.deepseek.com/v1/chat/completions";
 const MIN_RESPOSTAS_IA = 6;
 
 const DIMENSOES = [
@@ -87,7 +87,6 @@ Baseie-se apenas no que a pessoa disse; onde faltar informação, escreva "Não 
 const estado = {
   modo: null,            // "google" | "chave" | "demo"
   chave: null,
-  modeloRest: MODELOS_REST[0],
   firebase: null,        // { app, ai, getGenerativeModel }
   usuario: null,         // dados do login Google
   transcricao: [],
@@ -197,12 +196,12 @@ async function entrarComGoogle() {
     $("#aviso-firebase").textContent = "Não foi possível entrar: " + msg;
   }
 }
-/* ---------------------- Chamadas ao Gemini ---------------------- */
 
-// Uma única porta de entrada: recebe o histórico e a instrução de sistema,
-// devolve o texto — independentemente do modo de acesso.
+/* ---------------------- Chamadas à IA (DeepSeek) ---------------------- */
+
+// Função principal que chama a API DeepSeek ou Gemini (Firebase)
 async function gerarConteudo(contents, systemInstruction) {
-  // 1. Se estiver logado via Google, usa o SDK do Firebase Vertex AI
+  // 1. Se estiver logado via Google, usa o SDK do Firebase Vertex AI (Gemini)
   if (estado.modo === "google" && estado.firebase) {
     try {
       const { ai, getGenerativeModel } = estado.firebase;
@@ -220,55 +219,78 @@ async function gerarConteudo(contents, systemInstruction) {
     }
   }
 
-  // 2. Se estiver usando Chave Própria
-  const chaveEmUso = estado.chave || localStorage.getItem("matriz_chave_gemini");
+  // 2. Se estiver usando Chave Própria → DeepSeek
+  const chaveEmUso = estado.chave || localStorage.getItem("matriz_chave_deepseek");
   
   if (!chaveEmUso) {
-    throw new Error("Chave da API Gemini não encontrada. Configure uma chave do Google AI Studio.");
+    throw new Error("Chave da API DeepSeek não encontrada. Configure uma chave em https://platform.deepseek.com");
+  }
+
+  // Converte o formato do Google para o formato da DeepSeek
+  const mensagens = contents.map(item => ({
+    role: item.role === "model" ? "assistant" : "user",
+    content: item.parts.map(p => p.text).join(" ")
+  }));
+
+  // Adiciona a instrução do sistema como primeira mensagem
+  if (systemInstruction) {
+    mensagens.unshift({
+      role: "system",
+      content: systemInstruction
+    });
   }
 
   let ultimoErro = null;
-  for (const m of [estado.modeloRest, ...MODELOS_REST.filter(x => x !== estado.modeloRest)]) {
-    for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      try {
-        const resp = await fetch(API_BASE + m + ":generateContent?key=" + encodeURIComponent(chaveEmUso), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents,
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-          })
-        });
+  
+  // Tenta com o modelo DeepSeek (com retry em caso de erro)
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const resp = await fetch(API_BASE_DEEPSEEK, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${chaveEmUso}`
+        },
+        body: JSON.stringify({
+          model: MODELO_DEEPSEEK,
+          messages: mensagens,
+          temperature: 0.7,
+          max_tokens: 2048,
+          top_p: 0.95
+        })
+      });
 
-        if (!resp.ok) {
-          const errText = await resp.text();
-          if (resp.status === 429 && tentativa === 1) {
-            await new Promise(res => setTimeout(res, 4000));
-            continue;
-          }
-          throw new Error("HTTP " + resp.status + ": " + errText.slice(0, 300));
-        }
-
-        const dados = await resp.json();
-        const texto = dados?.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
-        if (!texto) throw new Error("Resposta vazia do modelo.");
-        estado.modeloRest = m;
-        return texto.trim();
-      } catch (e) {
-        ultimoErro = e;
-        if ((String(e.message).includes("503") || String(e.message).includes("429")) && tentativa === 1) {
-          await new Promise(res => setTimeout(res, 3000));
+      if (!resp.ok) {
+        const errText = await resp.text();
+        // Se for erro de rate limit, espera e tenta de novo
+        if (resp.status === 429 && tentativa < 3) {
+          await new Promise(res => setTimeout(res, 3000 * tentativa));
           continue;
         }
-        break;
+        throw new Error("HTTP " + resp.status + ": " + errText.slice(0, 300));
       }
+
+      const dados = await resp.json();
+      const texto = dados?.choices?.[0]?.message?.content || "";
+      
+      if (!texto) throw new Error("Resposta vazia do modelo.");
+      
+      return texto.trim();
+      
+    } catch (e) {
+      ultimoErro = e;
+      if (tentativa < 3) {
+        await new Promise(res => setTimeout(res, 2000 * tentativa));
+        continue;
+      }
+      break;
     }
   }
-  throw ultimoErro;
+  
+  throw ultimoErro || new Error("Falha ao comunicar com a API DeepSeek");
 }
 
-/* --- FUNÇÃO ADICIONADA: Formata o histórico do chat para o Gemini entender --- */
+/* --- FUNÇÃO: Formata o histórico do chat para o Gemini/DeepSeek entender --- */
 function transcricaoParaContents() {
   return estado.transcricao.map(t => ({
     role: t.papel === "ia" ? "model" : "user",
@@ -296,11 +318,16 @@ async function iniciarEntrevistaIA() {
 
 function iniciarModoChave() {
   const chave = $("#chave-api").value.trim();
-  if (!chave) { alert("Cole sua chave da API Gemini ou escolha outra forma de acesso."); return; }
+  if (!chave) { 
+    alert("Cole sua chave da API DeepSeek ou escolha outra forma de acesso."); 
+    return; 
+  }
   estado.modo = "chave";
   estado.chave = chave;
-  try { localStorage.setItem("matriz_chave_gemini", chave); } catch (_) {}
-  $("#coleta-modo-info").textContent = "Acesso com chave própria · entrevista conduzida por IA (Gemini).";
+  try { 
+    localStorage.setItem("matriz_chave_deepseek", chave);
+  } catch (_) {}
+  $("#coleta-modo-info").textContent = "Acesso com chave própria · entrevista conduzida por IA (DeepSeek).";
   iniciarEntrevistaIA();
 }
 
@@ -532,7 +559,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `<div class="dim-item"><strong>${d.nome}</strong><em>${d.desc}</em></div>`).join("");
 
   try {
-    const salva = localStorage.getItem("matriz_chave_gemini");
+    const salva = localStorage.getItem("matriz_chave_deepseek");
     if (salva) $("#chave-api").value = salva;
   } catch (_) {}
 
