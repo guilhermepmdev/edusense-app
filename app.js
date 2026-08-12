@@ -2,23 +2,18 @@
    Matriz Etiológica da Personalidade — lógica da aplicação
    Três formas de acesso:
      1) "google": login com conta Google (Firebase Auth) e chamadas ao Gemini
-        via Firebase AI Logic — sem chave no código; requer firebase-config.js.
-     2) "chave": o usuário informa a própria chave da API DeepSeek; chamadas
-        vão do navegador direto para a API da DeepSeek.
-     3) "demo": roteiro fixo de perguntas + processamento local.
-   Nenhum dado passa por servidores dos autores do site.
+     2) "chave": o usuário informa a própria chave da API DeepSeek
+     3) "demo": roteiro fixo de perguntas + processamento local
    ========================================================================== */
 
 "use strict";
 
 /* ---------------------- Configuração ---------------------- */
 
-const VERSAO_FIREBASE = "11.4.0"; // Versão v11 estável do CDN do Firebase
-const MODELO_IA = "gemini-2.0-flash"; // Para login com Google
-const MODELO_DEEPSEEK = "deepseek-chat"; // Para chave própria
-
-// Fallback no modo chave: sem duplicações
-const API_BASE_DEEPSEEK = "https://api.deepseek.com/v1/chat/completions";
+const VERSAO_FIREBASE = "11.4.0";
+const MODELO_IA = "gemini-2.0-flash";
+const MODELO_DEEPSEEK = "deepseek-chat";
+const API_DEEPSEEK = "https://api.deepseek.com/v1/chat/completions";
 const MIN_RESPOSTAS_IA = 6;
 
 const DIMENSOES = [
@@ -85,10 +80,10 @@ Baseie-se apenas no que a pessoa disse; onde faltar informação, escreva "Não 
 /* ---------------------- Estado ---------------------- */
 
 const estado = {
-  modo: null,            // "google" | "chave" | "demo"
+  modo: null,
   chave: null,
-  firebase: null,        // { app, ai, getGenerativeModel }
-  usuario: null,         // dados do login Google
+  firebase: null,
+  usuario: null,
   transcricao: [],
   respostasDemo: {},
   indiceDemo: 0,
@@ -96,14 +91,14 @@ const estado = {
   resultado: null
 };
 
-/* ---------------------- Utilidades de interface ---------------------- */
+/* ---------------------- Utilidades ---------------------- */
 
 const $ = (sel) => document.querySelector(sel);
 
 function irParaEtapa(nome) {
   document.querySelectorAll(".etapa").forEach(e => e.classList.remove("visivel"));
   $("#etapa-" + nome).classList.add("visivel");
-  const mapa = { acesso: "inicio" }; // tela de acesso pertence ao passo "Início"
+  const mapa = { acesso: "inicio" };
   const efetiva = mapa[nome] || nome;
   const ordem = ["inicio", "coleta", "matriz", "plano"];
   document.querySelectorAll(".passo").forEach(p => {
@@ -155,17 +150,17 @@ function overlay(mostrar, texto) {
   if (texto) $("#overlay-texto").textContent = texto;
 }
 
-/* ---------------------- Acesso: login com Google (Firebase) ---------------------- */
-
 function firebaseConfigurado() {
   return typeof FIREBASE_CONFIG !== "undefined" &&
          FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId && FIREBASE_CONFIG.appId;
 }
 
+/* ---------------------- Login Google ---------------------- */
+
 async function entrarComGoogle() {
   if (!firebaseConfigurado()) {
     $("#aviso-firebase").textContent =
-      "O login com Google ainda não foi configurado neste site (arquivo firebase-config.js vazio). Use uma das outras opções abaixo.";
+      "O login com Google ainda não foi configurado neste site. Use uma das outras opções abaixo.";
     return;
   }
   overlay(true, "Abrindo login do Google…");
@@ -197,11 +192,12 @@ async function entrarComGoogle() {
   }
 }
 
-/* ---------------------- Chamadas à IA (DeepSeek) ---------------------- */
+/* ================================================================
+   FUNÇÃO PRINCIPAL - CHAMADA À API DEEPSEEK
+   ================================================================ */
 
-// Função principal que chama a API DeepSeek ou Gemini (Firebase)
 async function gerarConteudo(contents, systemInstruction) {
-  // 1. Se estiver logado via Google, usa o SDK do Firebase Vertex AI (Gemini)
+  // Caso 1: Login com Google → usa Gemini via Firebase
   if (estado.modo === "google" && estado.firebase) {
     try {
       const { ai, getGenerativeModel } = estado.firebase;
@@ -209,7 +205,6 @@ async function gerarConteudo(contents, systemInstruction) {
         model: MODELO_IA,
         systemInstruction: systemInstruction
       });
-
       const resp = await model.generateContent({ contents });
       const texto = resp.response.text();
       if (!texto) throw new Error("Resposta vazia da IA.");
@@ -219,20 +214,19 @@ async function gerarConteudo(contents, systemInstruction) {
     }
   }
 
-  // 2. Se estiver usando Chave Própria → DeepSeek
+  // Caso 2: Chave Própria → usa DeepSeek
   const chaveEmUso = estado.chave || localStorage.getItem("matriz_chave_deepseek");
   
   if (!chaveEmUso) {
-    throw new Error("Chave da API DeepSeek não encontrada. Configure uma chave em https://platform.deepseek.com");
+    throw new Error("❌ Chave da API DeepSeek não encontrada. Configure uma chave em https://platform.deepseek.com");
   }
 
-  // Converte o formato do Google para o formato da DeepSeek
+  // Converte do formato Gemini para DeepSeek
   const mensagens = contents.map(item => ({
     role: item.role === "model" ? "assistant" : "user",
     content: item.parts.map(p => p.text).join(" ")
   }));
 
-  // Adiciona a instrução do sistema como primeira mensagem
   if (systemInstruction) {
     mensagens.unshift({
       role: "system",
@@ -242,42 +236,53 @@ async function gerarConteudo(contents, systemInstruction) {
 
   let ultimoErro = null;
   
-  // Tenta com o modelo DeepSeek (com retry em caso de erro)
   for (let tentativa = 1; tentativa <= 3; tentativa++) {
     try {
-      const resp = await fetch(API_BASE_DEEPSEEK, {
+      console.log("🟢 Tentativa " + tentativa + " - Enviando para DeepSeek...");
+      
+      const resp = await fetch(API_DEEPSEEK, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${chaveEmUso}`
+          "Authorization": "Bearer " + chaveEmUso.trim()
         },
         body: JSON.stringify({
           model: MODELO_DEEPSEEK,
           messages: mensagens,
           temperature: 0.7,
-          max_tokens: 2048,
-          top_p: 0.95
+          max_tokens: 2048
         })
       });
 
+      console.log("🟡 Status:", resp.status);
+
       if (!resp.ok) {
         const errText = await resp.text();
-        // Se for erro de rate limit, espera e tenta de novo
+        console.log("🔴 Erro:", errText);
+        
         if (resp.status === 429 && tentativa < 3) {
           await new Promise(res => setTimeout(res, 3000 * tentativa));
           continue;
         }
+        
+        // Verifica se é erro de chave inválida
+        if (resp.status === 401) {
+          throw new Error("❌ Chave API inválida. Verifique se você copiou a chave correta do site da DeepSeek.");
+        }
+        
         throw new Error("HTTP " + resp.status + ": " + errText.slice(0, 300));
       }
 
       const dados = await resp.json();
-      const texto = dados?.choices?.[0]?.message?.content || "";
+      console.log("🟢 Resposta recebida!");
       
+      const texto = dados?.choices?.[0]?.message?.content || "";
       if (!texto) throw new Error("Resposta vazia do modelo.");
       
       return texto.trim();
       
     } catch (e) {
+      console.log("🔴 Erro na tentativa", tentativa, ":", e.message);
       ultimoErro = e;
       if (tentativa < 3) {
         await new Promise(res => setTimeout(res, 2000 * tentativa));
@@ -290,7 +295,8 @@ async function gerarConteudo(contents, systemInstruction) {
   throw ultimoErro || new Error("Falha ao comunicar com a API DeepSeek");
 }
 
-/* --- FUNÇÃO: Formata o histórico do chat para o Gemini/DeepSeek entender --- */
+/* ---------------------- Funções auxiliares ---------------------- */
+
 function transcricaoParaContents() {
   return estado.transcricao.map(t => ({
     role: t.papel === "ia" ? "model" : "user",
@@ -298,7 +304,7 @@ function transcricaoParaContents() {
   }));
 }
 
-/* ---------------------- Fluxo: entrevista com IA (google ou chave) ---------------------- */
+/* ---------------------- Fluxo: entrevista com IA ---------------------- */
 
 async function iniciarEntrevistaIA() {
   irParaEtapa("coleta");
@@ -312,7 +318,7 @@ async function iniciarEntrevistaIA() {
     adicionarBalao("ia", abertura);
   } catch (e) {
     mostrarDigitando(false);
-    adicionarBalao("ia", "Não consegui conectar ao serviço de IA. Verifique a conexão ou tente outra forma de acesso.\n\nDetalhe técnico: " + e.message);
+    adicionarBalao("ia", "❌ Não consegui conectar ao serviço de IA.\n\n" + e.message + "\n\nVerifique sua chave ou tente o modo Demonstração.");
   }
 }
 
@@ -327,7 +333,7 @@ function iniciarModoChave() {
   try { 
     localStorage.setItem("matriz_chave_deepseek", chave);
   } catch (_) {}
-  $("#coleta-modo-info").textContent = "Acesso com chave própria · entrevista conduzida por IA (DeepSeek).";
+  $("#coleta-modo-info").textContent = "✅ Acesso com chave própria · entrevista conduzida por IA (DeepSeek).";
   iniciarEntrevistaIA();
 }
 
@@ -342,7 +348,7 @@ async function responderIA(textoUsuario) {
     adicionarBalao("ia", resposta);
   } catch (e) {
     mostrarDigitando(false);
-    adicionarBalao("ia", "Houve uma falha de conexão. Tente enviar novamente ou conclua a coleta com o que já temos. (" + e.message + ")");
+    adicionarBalao("ia", "❌ Falha de conexão: " + e.message + "\n\nTente novamente ou conclua a coleta.");
   }
 }
 
@@ -370,7 +376,7 @@ async function processarIA() {
     irParaEtapa("matriz");
   } catch (e) {
     overlay(false);
-    alert("Não foi possível processar com a IA: " + e.message + "\nVocê pode tentar novamente clicando em Concluir.");
+    alert("❌ Não foi possível processar com a IA: " + e.message);
   }
 }
 
@@ -381,11 +387,11 @@ function extrairJSON(texto) {
   try { return JSON.parse(limpo.slice(ini, fim + 1)); } catch (_) { return null; }
 }
 
-/* ---------------------- Fluxo: modo demonstração ---------------------- */
+/* ---------------------- Modo Demonstração ---------------------- */
 
 function iniciarModoDemo() {
   estado.modo = "demo";
-  $("#coleta-modo-info").textContent = "Modo Demonstração · roteiro fixo de 12 perguntas, processado localmente no seu navegador.";
+  $("#coleta-modo-info").textContent = "📋 Modo Demonstração · roteiro fixo de 12 perguntas, processado localmente.";
   irParaEtapa("coleta");
   adicionarBalao("ia", "Olá! Vou conduzir uma entrevista de 12 perguntas para montarmos a sua Matriz Etiológica da Personalidade. Responda com sinceridade e no seu ritmo — não há respostas certas ou erradas.");
   fazerPerguntaDemo();
@@ -395,7 +401,7 @@ function fazerPerguntaDemo() {
   if (estado.indiceDemo < ROTEIRO_DEMO.length) {
     adicionarBalao("ia", ROTEIRO_DEMO[estado.indiceDemo][1]);
   } else {
-    adicionarBalao("ia", "Coleta concluída!  Clique em \"Concluir coleta e gerar matriz\" para ver sua análise.");
+    adicionarBalao("ia", "✅ Coleta concluída! Clique em \"Concluir coleta e gerar matriz\" para ver sua análise.");
   }
   atualizarProgresso();
 }
@@ -552,7 +558,7 @@ function baixarJSON() {
 /* ---------------------- Inicialização ---------------------- */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Garante que o overlay comece fechado, mesmo se o CSS falhar em carregar
+  console.log("🚀 App.js carregado com sucesso!");
   overlay(false);
 
   $("#dim-resumo").innerHTML = DIMENSOES.map(d =>
@@ -563,12 +569,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (salva) $("#chave-api").value = salva;
   } catch (_) {}
 
-  // Landing → tela de acesso
   document.querySelectorAll("[data-iniciar]").forEach(b =>
     b.addEventListener("click", () => irParaEtapa("acesso")));
   $("#btn-voltar-inicio").addEventListener("click", () => irParaEtapa("inicio"));
 
-  // Formas de acesso
   $("#btn-login-google").addEventListener("click", entrarComGoogle);
   $("#btn-modo-chave").addEventListener("click", iniciarModoChave);
   $("#btn-modo-demo").addEventListener("click", iniciarModoDemo);
@@ -576,7 +580,6 @@ document.addEventListener("DOMContentLoaded", () => {
     $("#aviso-firebase").textContent = "Disponível quando o administrador do site configurar o Firebase.";
   }
 
-  // Chat
   $("#form-chat").addEventListener("submit", (ev) => {
     ev.preventDefault();
     const campo = $("#campo-resposta");
