@@ -73,4 +73,4 @@ Aviso
 Ferramenta educacional. Os resultados são uma premissa de reflexão e não
 constituem diagnóstico psicológico.
 
-link do site: https://guilhermepmdev.github.io/edusense-app/
+link do site:https://edusense-app-rho.vercel.app/
