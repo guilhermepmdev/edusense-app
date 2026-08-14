@@ -6,7 +6,7 @@
      2) "chave": o usuário informa a própria chave da API Gemini e o app
         chama a Generative Language API (generativelanguage.googleapis.com)
         diretamente do navegador.
-     3) "demo": roteiro fixo de perguntas + processamento local.
+     3) "demo": roteiro fixo de perguntas + processamento local
    ========================================================================== */
 
 "use strict";
