@@ -30,7 +30,7 @@ const CHAVE_LOCALSTORAGE = "matriz_chave_gemini";
 // que o painel do console mostre "somente monitoramento".
 // Obtenha essa chave em: Firebase Console → App Check → aba "Apps" → seu app
 // Web → "Registrar" com o provedor reCAPTCHA v3.
-const APP_CHECK_SITE_KEY = "6LdatIUtAAAAAHkpmGIrYAqHutuSMxqnFV4NmpSh";
+const APP_CHECK_SITE_KEY = "6LdXxIUtAAAAAF8FmpVj-pRfbuKO3DZlK0DPEf_D";
 const MIN_RESPOSTAS_IA = 6;
 
 const DIMENSOES = [
