@@ -23,6 +23,14 @@ const MODELO_GEMINI = "gemini-flash-latest";
 const API_GEMINI_GENERATE =
   "https://generativelanguage.googleapis.com/v1beta/models/" + MODELO_GEMINI + ":generateContent";
 const CHAVE_LOCALSTORAGE = "matriz_chave_gemini";
+// Chave de site do reCAPTCHA v3, usada pelo Firebase App Check para provar que
+// as chamadas ao Gemini vêm do seu site de verdade. Sem isso, o Firebase AI
+// Logic rejeita as chamadas com "This AI Logic Project is inactive" — a
+// aplicação do App Check é hoje obrigatória para liberar o projeto, mesmo
+// que o painel do console mostre "somente monitoramento".
+// Obtenha essa chave em: Firebase Console → App Check → aba "Apps" → seu app
+// Web → "Registrar" com o provedor reCAPTCHA v3.
+const APP_CHECK_SITE_KEY = "COLE_AQUI_SUA_CHAVE_DE_SITE_DO_RECAPTCHA_V3";
 const MIN_RESPOSTAS_IA = 6;
 
 const DIMENSOES = [
@@ -177,12 +185,30 @@ async function entrarComGoogle() {
     const base = "https://www.gstatic.com/firebasejs/" + VERSAO_FIREBASE + "/";
     // "firebase-vertexai.js" foi descontinuado pelo Firebase; o SDK atual de
     // IA generativa vive em "firebase-ai.js" (getAI + GoogleAIBackend).
-    const [{ initializeApp }, auth, aiSdk] = await Promise.all([
+    const [{ initializeApp }, auth, aiSdk, appCheckSdk] = await Promise.all([
       import(base + "firebase-app.js"),
       import(base + "firebase-auth.js"),
-      import(base + "firebase-ai.js")
+      import(base + "firebase-ai.js"),
+      import(base + "firebase-app-check.js")
     ]);
     const app = initializeApp(FIREBASE_CONFIG);
+
+    // O Firebase App Check precisa estar ativo ANTES da primeira chamada ao
+    // Gemini. Sem um token de App Check válido, o Firebase AI Logic recusa
+    // as chamadas com "This AI Logic Project is inactive" — mesmo que a
+    // aplicação (enforcement) apareça como "somente monitoramento" no
+    // console, a liberação real do projeto exige uma chamada com token.
+    if (APP_CHECK_SITE_KEY && !APP_CHECK_SITE_KEY.startsWith("COLE_AQUI")) {
+      try {
+        appCheckSdk.initializeAppCheck(app, {
+          provider: new appCheckSdk.ReCaptchaV3Provider(APP_CHECK_SITE_KEY),
+          isTokenAutoRefreshEnabled: true
+        });
+      } catch (eAppCheck) {
+        console.log("Aviso: falha ao iniciar o App Check:", eAppCheck.message);
+      }
+    }
+
     const resultado = await auth.signInWithPopup(auth.getAuth(app), new auth.GoogleAuthProvider());
     estado.usuario = { nome: resultado.user.displayName, email: resultado.user.email };
     estado.firebase = {
@@ -230,13 +256,19 @@ async function gerarConteudo(contents, systemInstruction) {
     } catch (e) {
       const msg = String(e && e.message || e);
       if (msg.includes("AI Logic Project is inactive")) {
+        const semChave = !APP_CHECK_SITE_KEY || APP_CHECK_SITE_KEY.startsWith("COLE_AQUI");
         throw new Error(
-          "O provedor Gemini ainda não está totalmente ativado neste projeto Firebase. " +
-          "Isso costuma acontecer quando o 'Get started' do Firebase AI Logic não completou a " +
-          "ativação da API por trás dos panos. No Google Cloud Console, abra 'APIs e serviços' → " +
-          "procure 'Generative Language API' → confirme que está Ativada para o projeto " +
-          "(console.cloud.google.com/apis/library/generativelanguage.googleapis.com). " +
-          "Enquanto isso, use o modo 'Usar minha chave Gemini', que não depende dessa configuração."
+          (semChave
+            ? "Falta configurar o Firebase App Check para o Gemini funcionar. "
+            : "O Firebase ainda não recebeu uma chamada válida com App Check para liberar o projeto. ") +
+          "Segundo a documentação oficial do Firebase, esse erro só some depois que o App Check é " +
+          "aplicado (enforced) para o Firebase AI Logic e uma chamada com token válido é enviada. " +
+          (semChave
+            ? "Configure em: App Check → aba Apps → registre seu app Web com o provedor reCAPTCHA v3, " +
+              "cole a chave de site na constante APP_CHECK_SITE_KEY do app.js e aplique (enforce) a " +
+              "'Firebase AI Logic API' na aba 'APIs' do App Check."
+            : "Aguarde alguns minutos após aplicar (enforce) o App Check e tente de novo.") +
+          " Enquanto isso, use o modo 'Usar minha chave Gemini', que não depende disso."
         );
       }
       throw new Error("Erro no Firebase AI: " + msg);
