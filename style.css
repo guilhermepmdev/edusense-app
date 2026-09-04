@@ -35,9 +35,9 @@ button{ font:inherit; cursor:pointer; }
 
 /* ---------- Cabeçalho ---------- */
 .topo{
-  display:flex; flex-wrap:wrap; gap:1rem 2rem;
+  display:flex; flex-wrap:wrap; gap:1rem 2.5rem;
   align-items:center; justify-content:space-between;
-  padding:1.1rem clamp(1rem,4vw,3rem);
+  padding:1.2rem clamp(1.25rem,5vw,4.5rem);
   background:var(--cartao); border-bottom:1px solid var(--linha);
   position:sticky; top:0; z-index:10;
 }
@@ -46,21 +46,24 @@ button{ font:inherit; cursor:pointer; }
 .marca h1{ font-size:1.15rem; margin:0; }
 .marca p{ margin:0; font-size:.78rem; color:var(--texto-suave); }
 
-.stepper{ display:flex; gap:.35rem; }
+.stepper{ display:flex; gap:.4rem; padding-right:.15rem; }
 .passo{
   display:flex; align-items:center; gap:.45rem;
   border:1px solid var(--linha); background:transparent;
   border-radius:999px; padding:.35rem .85rem .35rem .4rem;
   font-size:.85rem; font-weight:600; color:var(--texto-suave);
+  transition:background-color .18s ease, border-color .18s ease, color .18s ease;
 }
 .passo span{
   width:1.5rem; height:1.5rem; border-radius:50%;
   display:grid; place-items:center;
   background:var(--linha); color:var(--tinta); font-size:.75rem;
+  transition:background-color .18s ease, color .18s ease;
 }
 .passo.ativo{ border-color:var(--violeta); color:var(--violeta-esc); background:#F1EAFD; }
 .passo.ativo span{ background:var(--violeta); color:#fff; }
 .passo.feito span{ background:var(--rosa); color:#fff; }
+.passo:not(:disabled):hover{ border-color:var(--violeta); color:var(--violeta-esc); }
 .passo:disabled{ cursor:not-allowed; opacity:.55; }
 
 /* ---------- Etapas ---------- */
@@ -119,14 +122,18 @@ main{ max-width:1060px; margin:0 auto; padding:2.2rem clamp(1rem,4vw,2rem) 4rem;
 /* ---------- Botões ---------- */
 .btn{
   border:none; border-radius:10px; padding:.7rem 1.3rem;
-  font-weight:600; font-size:.95rem; transition:transform .12s ease, box-shadow .12s ease;
+  font-weight:600; font-size:.95rem;
+  transition:transform .18s cubic-bezier(.2,.7,.3,1), box-shadow .18s ease, background-color .18s ease, opacity .18s ease;
   display:inline-flex; align-items:center; gap:.5rem; justify-content:center;
 }
 .btn:hover{ transform:translateY(-1px); }
+.btn:active{ transform:translateY(0); }
 .btn-primario{ background:var(--violeta); color:#fff; box-shadow:0 4px 14px rgba(109,40,217,.35); }
-.btn-primario:hover{ background:var(--violeta-esc); }
+.btn-primario:hover{ background:var(--violeta-esc); box-shadow:0 6px 18px rgba(109,40,217,.4); }
 .btn-secundario{ background:var(--rosa); color:#fff; box-shadow:0 4px 14px rgba(219,39,119,.3); }
+.btn-secundario:hover{ box-shadow:0 6px 18px rgba(219,39,119,.38); }
 .btn-fantasma{ background:transparent; border:1px solid var(--linha); color:var(--tinta); }
+.btn-fantasma:hover{ background:var(--lavanda); border-color:var(--violeta); }
 .btn:disabled{ opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
 
 /* ---------- Acesso ---------- */
@@ -147,31 +154,70 @@ main{ max-width:1060px; margin:0 auto; padding:2.2rem clamp(1rem,4vw,2rem) 4rem;
 /* ---------- Coleta (chat) ---------- */
 .coleta-cabecalho{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
 .coleta-cabecalho p{ margin:0; color:var(--texto-suave); font-size:.9rem; }
-.progresso{ position:relative; width:56px; height:56px; flex-shrink:0; }
-.anel{ width:56px; height:56px; transform:rotate(-90deg); }
+.progresso{
+  position:relative; width:60px; height:60px; flex-shrink:0;
+  border-radius:50%; background:var(--cartao); box-shadow:var(--sombra);
+}
+.anel{ width:60px; height:60px; transform:rotate(-90deg); }
 .anel-fundo{ fill:none; stroke:var(--linha); stroke-width:5; }
 .anel-frente{
   fill:none; stroke:var(--rosa); stroke-width:5; stroke-linecap:round;
-  stroke-dasharray:119.4; stroke-dashoffset:119.4; transition:stroke-dashoffset .4s ease;
+  stroke-dasharray:119.4; stroke-dashoffset:119.4; transition:stroke-dashoffset .5s cubic-bezier(.2,.7,.3,1);
 }
-#progresso-texto{ position:absolute; inset:0; display:grid; place-items:center; font-size:.72rem; font-weight:700; }
+#progresso-texto{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font-size:.78rem; font-weight:700; color:var(--violeta-esc);
+  letter-spacing:-.01em; font-variant-numeric:tabular-nums;
+}
 
 .chat{
   background:var(--cartao); border:1px solid var(--linha); border-radius:var(--raio);
-  padding:1.2rem; height:min(52vh,460px); overflow-y:auto;
+  padding:1.2rem; height:min(65vh,600px); overflow-y:auto; scroll-behavior:smooth;
   display:flex; flex-direction:column; gap:.8rem; box-shadow:var(--sombra);
+  scrollbar-width:thin; scrollbar-color:var(--linha) transparent;
 }
-.balao{ max-width:78%; padding:.7rem 1rem; border-radius:14px; font-size:.95rem; white-space:pre-wrap; }
-.balao-ia{ background:var(--lavanda); border:1px solid var(--linha); align-self:flex-start; border-bottom-left-radius:4px; }
-.balao-usuario{ background:var(--violeta); color:#fff; align-self:flex-end; border-bottom-right-radius:4px; }
-.balao-digitando{ color:var(--texto-suave); font-style:italic; }
+.chat::-webkit-scrollbar{ width:8px; }
+.chat::-webkit-scrollbar-track{ background:transparent; }
+.chat::-webkit-scrollbar-thumb{ background:var(--linha); border-radius:999px; }
+.chat::-webkit-scrollbar-thumb:hover{ background:var(--texto-suave); }
 
-.chat-entrada{ display:flex; gap:.6rem; margin-top:.9rem; }
+.balao{
+  max-width:78%; padding:.7rem 1rem; border-radius:16px; font-size:.95rem; white-space:pre-wrap;
+  box-shadow:0 2px 8px rgba(43,27,61,.06); animation:balao-surge .28s ease;
+}
+@keyframes balao-surge{ from{ opacity:0; transform:translateY(6px) scale(.98); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce){ .balao{ animation:none; } }
+.balao-ia{
+  background:var(--lavanda); border:1px solid var(--linha); align-self:flex-start;
+  border-radius:16px 16px 16px 4px;
+}
+.balao-usuario{
+  background:linear-gradient(135deg,var(--violeta),var(--violeta-esc)); color:#fff;
+  align-self:flex-end; border-radius:16px 16px 4px 16px;
+  box-shadow:0 3px 10px rgba(109,40,217,.28);
+}
+.balao-digitando{ color:var(--texto-suave); font-style:italic; box-shadow:none; }
+
+.chat-entrada{ display:flex; gap:.6rem; margin-top:.9rem; align-items:flex-start; }
 .chat-entrada textarea{
   flex:1; resize:none; border:1px solid var(--linha); border-radius:10px;
   padding:.65rem .9rem; font:inherit; background:var(--cartao);
+  transition:border-color .18s ease, box-shadow .18s ease;
 }
-.chat-entrada textarea:focus{ border-color:var(--violeta); outline:none; }
+.chat-entrada textarea:hover{ border-color:#C9BCE0; }
+.chat-entrada textarea:focus{
+  border-color:var(--violeta); outline:none;
+  box-shadow:0 0 0 4px rgba(109,40,217,.12);
+}
+.chat-dica{
+  margin:.5rem 0 0; font-size:.76rem; color:var(--texto-suave);
+  display:flex; align-items:center; gap:.3rem; flex-wrap:wrap;
+}
+.chat-dica kbd{
+  font-family:inherit; font-size:.72rem; font-weight:600; color:var(--tinta);
+  background:var(--lavanda); border:1px solid var(--linha); border-bottom-width:2px;
+  border-radius:5px; padding:.05rem .4rem; line-height:1.5;
+}
 .coleta-acoes{ margin-top:.7rem; text-align:right; }
 
 /* ---------- Matriz ---------- */
@@ -210,7 +256,12 @@ main{ max-width:1060px; margin:0 auto; padding:2.2rem clamp(1rem,4vw,2rem) 4rem;
    senão o quadro "Processando" aparece permanentemente (bug corrigido). */
 .overlay{ position:fixed; inset:0; background:rgba(43,27,61,.55); display:grid; place-items:center; z-index:50; }
 .overlay[hidden]{ display:none !important; }
-.overlay-caixa{ background:var(--cartao); border-radius:var(--raio); padding:2rem 2.6rem; text-align:center; box-shadow:var(--sombra); }
+.overlay-caixa{
+  background:var(--cartao); border-radius:var(--raio); padding:2rem 2.6rem; text-align:center;
+  box-shadow:var(--sombra); animation:overlay-surge .25s ease;
+}
+@keyframes overlay-surge{ from{ opacity:0; transform:scale(.96); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce){ .overlay-caixa{ animation:none; } }
 .pulso{ font-size:2.2rem; color:var(--rosa); animation:girar 1.6s linear infinite; display:inline-block; }
 @keyframes girar{ to{ transform:rotate(360deg);} }
 @media (prefers-reduced-motion:reduce){ .pulso{ animation:none; } }
