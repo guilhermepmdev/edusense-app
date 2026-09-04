@@ -133,7 +133,7 @@ function adicionarBalao(papel, texto) {
   div.className = "balao " + (papel === "usuario" ? "balao-usuario" : "balao-ia");
   div.textContent = texto;
   chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  chat.scrollTo({ top: chat.scrollHeight, behavior: "smooth" });
   estado.transcricao.push({ papel, texto });
 }
 
@@ -145,7 +145,7 @@ function mostrarDigitando(mostrar) {
     d.className = "balao balao-ia balao-digitando";
     d.textContent = "escrevendo…";
     $("#chat").appendChild(d);
-    $("#chat").scrollTop = $("#chat").scrollHeight;
+    $("#chat").scrollTo({ top: $("#chat").scrollHeight, behavior: "smooth" });
   } else if (!mostrar && d) d.remove();
 }
 
